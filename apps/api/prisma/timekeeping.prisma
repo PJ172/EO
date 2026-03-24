@@ -1,0 +1,111 @@
+// ============================================
+// TIMEKEEPING / ATTENDANCE
+// ============================================
+
+model Shift {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  startTime   String   @map("start_time") // "08:00"
+  endTime     String   @map("end_time")   // "17:00"
+  breakMinutes Int     @default(60) @map("break_minutes")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  employeeShifts EmployeeShift[]
+
+  @@map("shifts")
+}
+
+model EmployeeShift {
+  id            String   @id @default(uuid())
+  employeeId    String   @map("employee_id")
+  shiftId       String   @map("shift_id")
+  effectiveFrom DateTime @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  shift Shift @relation(fields: [shiftId], references: [id])
+
+  @@index([employeeId])
+  @@map("employee_shifts")
+}
+
+model Attendance {
+  id            String    @id @default(uuid())
+  employeeId    String    @map("employee_id")
+  date          DateTime  @db.Date
+  checkIn       DateTime? @map("check_in")
+  checkOut      DateTime? @map("check_out")
+  checkInMethod String?   @map("check_in_method") // FINGERPRINT, FACE, MANUAL, GPS
+  checkOutMethod String?  @map("check_out_method")
+  workMinutes   Int?      @map("work_minutes")
+  overtimeMinutes Int?    @map("overtime_minutes")
+  status        AttendanceStatus @default(PRESENT)
+  note          String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@map("attendances")
+}
+
+enum AttendanceStatus {
+  PRESENT         // Có mặt
+  ABSENT          // Vắng mặt
+  LATE            // Đi muộn
+  EARLY_LEAVE     // Về sớm
+  HALF_DAY        // Nửa ngày
+  ON_LEAVE        // Nghỉ phép
+  BUSINESS_TRIP   // Công tác
+  WORK_FROM_HOME  // Làm việc từ xa
+}
+
+model OvertimeRequest {
+  id            String    @id @default(uuid())
+  employeeId    String    @map("employee_id")
+  date          DateTime  @db.Date
+  startTime     String    @map("start_time")
+  endTime       String    @map("end_time")
+  reason        String?
+  status        OvertimeStatus @default(PENDING)
+  approvedById  String?   @map("approved_by")
+  approvedAt    DateTime? @map("approved_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("overtime_requests")
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AttendanceAdjustment {
+  id            String   @id @default(uuid())
+  employeeId    String   @map("employee_id")
+  date          DateTime @db.Date
+  adjustmentType String  @map("adjustment_type") // CHECK_IN, CHECK_OUT
+  requestedTime DateTime @map("requested_time")
+  reason        String
+  status        AdjustmentStatus @default(PENDING)
+  approvedById  String?  @map("approved_by")
+  approvedAt    DateTime? @map("approved_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@map("attendance_adjustments")
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

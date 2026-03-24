@@ -1,0 +1,37 @@
+diff --git a/node_modules/@radix-ui/react-compose-refs/dist/index.js b/node_modules/@radix-ui/react-compose-refs/dist/index.js
+index 5ba7a95..8f8dbb0 100644
+--- a/node_modules/@radix-ui/react-compose-refs/dist/index.js
++++ b/node_modules/@radix-ui/react-compose-refs/dist/index.js
+@@ -69,6 +69,11 @@ function composeRefs(...refs) {
+   };
+ }
+ function useComposedRefs(...refs) {
+-  return React.useCallback(composeRefs(...refs), refs);
++  // PATCHED for React 19: stable callback via useRef
++  var currentRefs = React.useRef(refs);
++  currentRefs.current = refs;
++  return React.useCallback(function (node) {
++    return composeRefs.apply(null, currentRefs.current)(node);
++  }, []);
+ }
+ //# sourceMappingURL=index.js.map
+diff --git a/node_modules/@radix-ui/react-compose-refs/dist/index.mjs b/node_modules/@radix-ui/react-compose-refs/dist/index.mjs
+index 7dd9172..a48df46 100644
+--- a/node_modules/@radix-ui/react-compose-refs/dist/index.mjs
++++ b/node_modules/@radix-ui/react-compose-refs/dist/index.mjs
+@@ -32,7 +32,14 @@ function composeRefs(...refs) {
+   };
+ }
+ function useComposedRefs(...refs) {
+-  return React.useCallback(composeRefs(...refs), refs);
++  // PATCHED: Use useRef to keep stable callback for React 19 compatibility.
++  // Original spread deps created new array every render → new callback →
++  // React 19 ref cleanup/reattach → Presence setNode(setState) → infinite loop.
++  var currentRefs = React.useRef(refs);
++  currentRefs.current = refs;
++  return React.useCallback(function (node) {
++    return composeRefs.apply(null, currentRefs.current)(node);
++  }, []);
+ }
+ export {
+   composeRefs,

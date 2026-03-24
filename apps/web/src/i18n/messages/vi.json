@@ -1,0 +1,116 @@
+{
+    "common": {
+        "appName": "eOffice",
+        "loading": "Đang tải...",
+        "save": "Lưu",
+        "cancel": "Hủy",
+        "delete": "Xóa",
+        "edit": "Sửa",
+        "create": "Tạo mới",
+        "search": "Tìm kiếm",
+        "filter": "Lọc",
+        "export": "Xuất",
+        "import": "Nhập",
+        "confirm": "Xác nhận",
+        "back": "Quay lại",
+        "next": "Tiếp theo",
+        "submit": "Gửi",
+        "reset": "Đặt lại",
+        "close": "Đóng",
+        "yes": "Có",
+        "no": "Không",
+        "all": "Tất cả",
+        "none": "Không có",
+        "actions": "Hành động",
+        "status": "Trạng thái",
+        "date": "Ngày",
+        "time": "Thời gian",
+        "name": "Tên",
+        "description": "Mô tả",
+        "note": "Ghi chú"
+    },
+    "auth": {
+        "login": "Đăng nhập",
+        "logout": "Đăng xuất",
+        "username": "Tên đăng nhập",
+        "password": "Mật khẩu",
+        "forgotPassword": "Quên mật khẩu?",
+        "loginSuccess": "Đăng nhập thành công!",
+        "loginFailed": "Đăng nhập thất bại",
+        "invalidCredentials": "Tên đăng nhập hoặc mật khẩu không đúng",
+        "sessionExpired": "Phiên làm việc đã hết hạn"
+    },
+    "nav": {
+        "dashboard": "Tổng quan",
+        "employees": "Nhân viên",
+        "departments": "Phòng ban",
+        "documents": "Tài liệu",
+        "leaves": "Nghỉ phép",
+        "bookings": "Đặt phòng",
+        "timekeeping": "Chấm công",
+        "settings": "Cài đặt"
+    },
+    "dashboard": {
+        "welcome": "Chào mừng trở lại",
+        "todaySchedule": "Lịch hôm nay",
+        "pendingApprovals": "Chờ duyệt",
+        "quickActions": "Thao tác nhanh"
+    },
+    "employees": {
+        "title": "Danh sách nhân viên",
+        "addEmployee": "Thêm nhân viên",
+        "employeeCode": "Mã nhân viên",
+        "fullName": "Họ và tên",
+        "email": "Email",
+        "phone": "Số điện thoại",
+        "department": "Phòng ban",
+        "position": "Chức vụ",
+        "status": {
+            "probation": "Thử việc",
+            "official": "Chính thức",
+            "resigned": "Đã nghỉ"
+        }
+    },
+    "leaves": {
+        "title": "Đơn nghỉ phép",
+        "createLeave": "Tạo đơn nghỉ phép",
+        "leaveType": "Loại nghỉ phép",
+        "startDate": "Ngày bắt đầu",
+        "endDate": "Ngày kết thúc",
+        "reason": "Lý do",
+        "status": {
+            "draft": "Nháp",
+            "submitted": "Đã gửi",
+            "approved": "Đã duyệt",
+            "rejected": "Từ chối",
+            "cancelled": "Đã hủy"
+        }
+    },
+    "timekeeping": {
+        "title": "Chấm công",
+        "checkIn": "Vào làm",
+        "checkOut": "Ra về",
+        "todayStatus": "Trạng thái hôm nay",
+        "history": "Lịch sử",
+        "monthlySummary": "Tổng kết tháng",
+        "status": {
+            "present": "Có mặt",
+            "absent": "Vắng mặt",
+            "late": "Đi muộn",
+            "earlyLeave": "Về sớm",
+            "onLeave": "Nghỉ phép"
+        }
+    },
+    "notifications": {
+        "title": "Thông báo",
+        "markAllRead": "Đánh dấu tất cả đã đọc",
+        "noNotifications": "Không có thông báo mới"
+    },
+    "errors": {
+        "general": "Đã có lỗi xảy ra",
+        "notFound": "Không tìm thấy",
+        "unauthorized": "Bạn không có quyền truy cập",
+        "networkError": "Lỗi kết nối mạng",
+        "tryAgain": "Vui lòng thử lại"
+    }
+}

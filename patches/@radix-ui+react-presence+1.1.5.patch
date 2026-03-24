@@ -1,0 +1,35 @@
+diff --git a/node_modules/@radix-ui/react-presence/dist/index.js b/node_modules/@radix-ui/react-presence/dist/index.js
+index 944abc2..d2b9402 100644
+--- a/node_modules/@radix-ui/react-presence/dist/index.js
++++ b/node_modules/@radix-ui/react-presence/dist/index.js
+@@ -147,7 +147,10 @@ function usePresence(present) {
+     isPresent: ["mounted", "unmountSuspended"].includes(state),
+     ref: React2.useCallback((node2) => {
+       stylesRef.current = node2 ? getComputedStyle(node2) : null;
+-      setNode(node2);
++      // PATCHED for React 19: skip setNode(null) during ref cleanup
++      if (node2 !== null) {
++        setNode(node2);
++      }
+     }, [])
+   };
+ }
+diff --git a/node_modules/@radix-ui/react-presence/dist/index.mjs b/node_modules/@radix-ui/react-presence/dist/index.mjs
+index 0efe02a..5282bff 100644
+--- a/node_modules/@radix-ui/react-presence/dist/index.mjs
++++ b/node_modules/@radix-ui/react-presence/dist/index.mjs
+@@ -111,7 +111,13 @@ function usePresence(present) {
+     isPresent: ["mounted", "unmountSuspended"].includes(state),
+     ref: React2.useCallback((node2) => {
+       stylesRef.current = node2 ? getComputedStyle(node2) : null;
+-      setNode(node2);
++      // PATCHED for React 19: skip setNode(null) during ref cleanup.
++      // React 19 calls cleanup(null) then setup(node) on every ref change.
++      // Calling setNode(null) → re-render → setNode(node) → re-render → LOOP.
++      // Only update state when we actually get a real node.
++      if (node2 !== null) {
++        setNode(node2);
++      }
+     }, [])
+   };
+ }

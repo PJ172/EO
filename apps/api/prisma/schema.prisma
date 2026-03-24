@@ -1,0 +1,1934 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  username                String                   @unique
+  email                   String                   @unique
+  passwordHash            String?                  @map("password_hash")
+  status                  UserStatus               @default(ACTIVE)
+  lastLoginAt             DateTime?                @map("last_login_at")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  createdById             String?                  @map("created_by_id")
+  deletedAt               DateTime?                @map("deleted_at")
+  deletedBatchId          String?                  @map("deleted_batch_id")
+  deletedById             String?                  @map("deleted_by_id")
+  updatedById             String?                  @map("updated_by_id")
+  auditLogs               AuditLog[]
+  createdCompanies        Company[]                @relation("CompanyCreatedBy")
+  deletedCompanies        Company[]                @relation("CompanyDeletedBy")
+  updatedCompanies        Company[]                @relation("CompanyUpdatedBy")
+  createdDepartments      Department[]             @relation("DepartmentCreator")
+  deletedDepartments      Department[]             @relation("DepartmentDeleter")
+  updatedDepartments      Department[]             @relation("DepartmentUpdater")
+  createdDivisions        Division[]               @relation("DivisionCreatedBy")
+  deletedDivisions        Division[]               @relation("DivisionDeletedBy")
+  updatedDivisions        Division[]               @relation("DivisionUpdatedBy")
+  employeesCreated        Employee[]               @relation("EmployeeCreatedBy")
+  employeesDeleted        Employee[]               @relation("EmployeeDeletedBy")
+  employeesUpdated        Employee[]               @relation("EmployeeUpdatedBy")
+  employee                Employee?
+  createdFactories        Factory[]                @relation("FactoryCreator")
+  deletedFactories        Factory[]                @relation("FactoryDeleter")
+  updatedFactories        Factory[]                @relation("FactoryUpdater")
+  uploadedFiles           File[]
+  importHistory           ImportHistory[]
+  jobTitlesCreated        JobTitle[]               @relation("JobTitleCreatedBy")
+  jobTitlesDeleted        JobTitle[]               @relation("JobTitleDeletedBy")
+  jobTitlesUpdated        JobTitle[]               @relation("JobTitleUpdatedBy")
+  moduleVisibilityConfigs ModuleVisibilityConfig[] @relation("VisibilityGlobal")
+  updatedOrgConfigs       OrgChartConfig[]         @relation("OrgConfigUpdater")
+  createdOrgOverrides     OrgChartOverride[]       @relation("UserOrgOverrideCreator")
+  updatedOrgOverrides     OrgChartViewOverride[]
+  createdSections         Section[]                @relation("SectionCreatedBy")
+  deletedSections         Section[]                @relation("SectionDeletedBy")
+  updatedSections         Section[]                @relation("SectionUpdatedBy")
+  createdColumnConfigs    TableColumnConfig[]      @relation("ConfigCreatedBy")
+  updatedColumnConfigs    TableColumnConfig[]      @relation("ConfigUpdatedBy")
+  trashRetentionConfigs   TrashRetentionConfig[]   @relation("TrashConfigUpdater")
+  permissions             UserPermission[]
+  roles                   UserRole[]
+  createdBy               User?                    @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers            User[]                   @relation("UserCreator")
+  deletedByUser           User?                    @relation("UserDeleter", fields: [deletedById], references: [id])
+  deletedUsers            User[]                   @relation("UserDeleter")
+  updatedBy               User?                    @relation("UserUpdater", fields: [updatedById], references: [id])
+  updatedUsers            User[]                   @relation("UserUpdater")
+
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("users")
+}
+
+model ModuleVisibilityConfig {
+  id          String               @id @default(uuid())
+  moduleCode  String               @map("module_code")
+  targetType  VisibilityTargetType @map("target_type")
+  targetId    String?              @map("target_id")
+  isVisible   Boolean              @default(true) @map("is_visible")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  updatedById String?              @map("updated_by_id")
+  name        String?              @map("name")
+  updatedBy   User?                @relation("VisibilityGlobal", fields: [updatedById], references: [id])
+
+  @@unique([moduleCode, targetType, targetId])
+  @@index([targetType, targetId])
+  @@map("module_visibility_configs")
+}
+
+model Role {
+  id             String           @id @default(uuid())
+  code           String           @unique
+  name           String
+  description    String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  deletedAt      DateTime?        @map("deleted_at")
+  deletedBatchId String?          @map("deleted_batch_id")
+  deletedById    String?          @map("deleted_by_id")
+  permissions    RolePermission[]
+  users          UserRole[]
+
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  description String?
+  module      String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  roles       RolePermission[]
+  users       UserPermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model UserPermission {
+  userId       String     @map("user_id")
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@map("user_permissions")
+}
+
+model OrgChartConfig {
+  id          String   @id
+  nodesep     Int      @default(50)
+  ranksep     Int      @default(120)
+  zoom        Float    @default(0.85)
+  nodeDims    Json?    @map("node_dims")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedById String?  @map("updated_by_id")
+  nodeColors  Json?    @map("node_colors")
+  updatedBy   User?    @relation("OrgConfigUpdater", fields: [updatedById], references: [id])
+
+  @@map("org_chart_configs")
+}
+
+model OrgChartViewOverride {
+  id            String   @id @default(uuid())
+  chartKey      String   @unique @map("chart_key")
+  hiddenNodeIds Json     @default("[]") @map("hidden_node_ids")
+  customEdges   Json     @default("[]") @map("custom_edges")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedById   String?  @map("updated_by_id")
+  updatedBy     User?    @relation(fields: [updatedById], references: [id])
+
+  @@map("org_chart_view_overrides")
+}
+
+model OrgChartOverride {
+  id              String   @id @default(uuid())
+  employeeId      String   @map("employee_id")
+  action          String
+  targetManagerId String   @map("target_manager_id")
+  targetHandle    String?  @map("target_handle")
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdById     String?  @map("created_by")
+  createdBy       User?    @relation("UserOrgOverrideCreator", fields: [createdById], references: [id])
+  employee        Employee @relation("EmployeeOverride", fields: [employeeId], references: [id], onDelete: Cascade)
+  targetManager   Employee @relation("TargetManagerOverride", fields: [targetManagerId], references: [id])
+
+  @@index([employeeId])
+  @@map("org_chart_overrides")
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  actorUserId  String?     @map("actor_user_id")
+  action       AuditAction
+  entityType   String      @map("entity_type")
+  entityId     String      @map("entity_id")
+  beforeJson   Json?       @map("before_json")
+  afterJson    Json?       @map("after_json")
+  ip           String?
+  userAgent    String?     @map("user_agent")
+  computerName String?     @map("computer_name")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  actor        User?       @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model File {
+  id                 String               @id @default(uuid())
+  storagePath        String               @map("storage_path")
+  originalName       String               @map("original_name")
+  mimeType           String               @map("mime_type")
+  size               Int
+  checksum           String?
+  uploadedById       String               @map("uploaded_by")
+  linkedEntityType   String?              @map("linked_entity_type")
+  linkedEntityId     String?              @map("linked_entity_id")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  deletedAt          DateTime?            @map("deleted_at")
+  deletedBatchId     String?              @map("deleted_batch_id")
+  deletedById        String?              @map("deleted_by_id")
+  uploadedBy         User                 @relation(fields: [uploadedById], references: [id])
+  ticket_attachments ticket_attachments[]
+
+  @@index([linkedEntityType, linkedEntityId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("files")
+}
+
+model Factory {
+  id                 String        @id @default(uuid())
+  code               String        @unique
+  name               String
+  address            String?
+  status             FactoryStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  deletedAt          DateTime?     @map("deleted_at")
+  deletedById        String?       @map("deleted_by_id")
+  deletedBatchId     String?       @map("deleted_batch_id")
+  createdById        String?       @map("created_by")
+  updatedById        String?       @map("updated_by")
+  companyId          String?       @map("company_id")
+  excludeFromFilters Boolean       @default(false) @map("exclude_from_filters")
+  managerEmployeeId  String?       @map("manager_employee_id")
+  showOnOrgChart     Boolean       @default(false) @map("show_on_org_chart")
+  uiPositionX        Float?        @map("ui_position_x")
+  uiPositionY        Float?        @map("ui_position_y")
+  divisions          Division[]
+  employees          Employee[]
+  company            Company?      @relation(fields: [companyId], references: [id])
+  createdBy          User?         @relation("FactoryCreator", fields: [createdById], references: [id])
+  deletedBy          User?         @relation("FactoryDeleter", fields: [deletedById], references: [id])
+  manager            Employee?     @relation("FactoryManager", fields: [managerEmployeeId], references: [id])
+  updatedBy          User?         @relation("FactoryUpdater", fields: [updatedById], references: [id])
+
+  @@index([companyId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("factories")
+}
+
+model Department {
+  id                 String               @id @default(uuid())
+  code               String               @unique
+  name               String
+  managerEmployeeId  String?              @map("manager_employee_id")
+  status             DepartmentStatus     @default(ACTIVE)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  createdById        String?              @map("created_by")
+  updatedById        String?              @map("updated_by")
+  deletedAt          DateTime?            @map("deleted_at")
+  deletedBatchId     String?              @map("deleted_batch_id")
+  deletedById        String?              @map("deleted_by_id")
+  note               String?
+  divisionId         String?              @map("division_id")
+  companyId          String?              @map("company_id")
+  excludeFromFilters Boolean              @default(false) @map("exclude_from_filters")
+  showOnOrgChart     Boolean              @default(false) @map("show_on_org_chart")
+  uiPositionX        Float?               @map("ui_position_x")
+  uiPositionY        Float?               @map("ui_position_y")
+  company            Company?             @relation(fields: [companyId], references: [id])
+  createdBy          User?                @relation("DepartmentCreator", fields: [createdById], references: [id])
+  deletedBy          User?                @relation("DepartmentDeleter", fields: [deletedById], references: [id])
+  division           Division?            @relation(fields: [divisionId], references: [id])
+  manager            Employee?            @relation("DepartmentManager", fields: [managerEmployeeId], references: [id])
+  updatedBy          User?                @relation("DepartmentUpdater", fields: [updatedById], references: [id])
+  jobHistoryFrom     EmployeeJobHistory[] @relation("HistoryFromDept")
+  jobHistoryTo       EmployeeJobHistory[] @relation("HistoryToDept")
+  employees          Employee[]           @relation("EmployeeDepartment")
+  itAssets           ITAsset[]
+  sections           Section[]
+  positions          Position[]           @relation("PositionDepartment")
+
+  @@index([divisionId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("departments")
+}
+
+model Company {
+  id                 String           @id @default(uuid())
+  code               String           @unique
+  name               String
+  address            String?
+  note               String?
+  status             DepartmentStatus @default(ACTIVE)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+  deletedById        String?          @map("deleted_by_id")
+  deletedBatchId     String?          @map("deleted_batch_id")
+  createdById        String?          @map("created_by_id")
+  updatedById        String?          @map("updated_by_id")
+  excludeFromFilters Boolean          @default(false) @map("exclude_from_filters")
+  managerEmployeeId  String?          @map("manager_employee_id")
+  showOnOrgChart     Boolean          @default(false) @map("show_on_org_chart")
+  uiPositionX        Float?           @map("ui_position_x")
+  uiPositionY        Float?           @map("ui_position_y")
+  createdBy          User?            @relation("CompanyCreatedBy", fields: [createdById], references: [id])
+  deletedBy          User?            @relation("CompanyDeletedBy", fields: [deletedById], references: [id])
+  manager            Employee?        @relation("CompanyManager", fields: [managerEmployeeId], references: [id])
+  updatedBy          User?            @relation("CompanyUpdatedBy", fields: [updatedById], references: [id])
+  departments        Department[]
+  divisions          Division[]
+  employees          Employee[]       @relation("EmployeeCompany")
+  factories          Factory[]
+  sections           Section[]
+
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("companies")
+}
+
+model Division {
+  id                 String           @id @default(uuid())
+  code               String           @unique
+  name               String
+  factoryId          String?          @map("factory_id")
+  note               String?
+  status             DepartmentStatus @default(ACTIVE)
+  managerEmployeeId  String?          @map("manager_employee_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+  deletedById        String?          @map("deleted_by_id")
+  deletedBatchId     String?          @map("deleted_batch_id")
+  createdById        String?          @map("created_by_id")
+  updatedById        String?          @map("updated_by_id")
+  companyId          String?          @map("company_id")
+  excludeFromFilters Boolean          @default(false) @map("exclude_from_filters")
+  showOnOrgChart     Boolean          @default(false) @map("show_on_org_chart")
+  uiPositionX        Float?           @map("ui_position_x")
+  uiPositionY        Float?           @map("ui_position_y")
+  departments        Department[]
+  company            Company?         @relation(fields: [companyId], references: [id])
+  createdBy          User?            @relation("DivisionCreatedBy", fields: [createdById], references: [id])
+  deletedBy          User?            @relation("DivisionDeletedBy", fields: [deletedById], references: [id])
+  factory            Factory?         @relation(fields: [factoryId], references: [id])
+  manager            Employee?        @relation("DivisionManager", fields: [managerEmployeeId], references: [id])
+  updatedBy          User?            @relation("DivisionUpdatedBy", fields: [updatedById], references: [id])
+  employees          Employee[]       @relation("EmployeeDivision")
+
+  @@index([factoryId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("divisions")
+}
+
+model Section {
+  id                 String           @id @default(uuid())
+  code               String           @unique
+  name               String
+  departmentId       String?          @map("department_id")
+  note               String?
+  status             DepartmentStatus @default(ACTIVE)
+  managerEmployeeId  String?          @map("manager_employee_id")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+  deletedById        String?          @map("deleted_by_id")
+  deletedBatchId     String?          @map("deleted_batch_id")
+  createdById        String?          @map("created_by_id")
+  updatedById        String?          @map("updated_by_id")
+  companyId          String?          @map("company_id")
+  excludeFromFilters Boolean          @default(false) @map("exclude_from_filters")
+  showOnOrgChart     Boolean          @default(false) @map("show_on_org_chart")
+  uiPositionX        Float?           @map("ui_position_x")
+  uiPositionY        Float?           @map("ui_position_y")
+  employees          Employee[]       @relation("EmployeeSection")
+  company            Company?         @relation(fields: [companyId], references: [id])
+  createdBy          User?            @relation("SectionCreatedBy", fields: [createdById], references: [id])
+  deletedBy          User?            @relation("SectionDeletedBy", fields: [deletedById], references: [id])
+  department         Department?      @relation(fields: [departmentId], references: [id])
+  manager            Employee?        @relation("SectionManager", fields: [managerEmployeeId], references: [id])
+  updatedBy          User?            @relation("SectionUpdatedBy", fields: [updatedById], references: [id])
+  positions          Position[]       @relation("PositionSection")
+
+  @@index([departmentId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("sections")
+}
+
+model JobTitle {
+  id              String               @id @default(uuid())
+  code            String               @unique
+  name            String
+  description     String?
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  createdById     String?              @map("created_by_id")
+  deletedAt       DateTime?            @map("deleted_at")
+  deletedBatchId  String?              @map("deleted_batch_id")
+  deletedById     String?              @map("deleted_by_id")
+  status          JobTitleStatus       @default(ACTIVE)
+  updatedById     String?              @map("updated_by_id")
+  jobHistoryFrom  EmployeeJobHistory[] @relation("HistoryFromJob")
+  jobHistoryTo    EmployeeJobHistory[] @relation("HistoryToJob")
+  employees       Employee[]
+  jobDescriptions JobDescription[]
+  createdBy       User?                @relation("JobTitleCreatedBy", fields: [createdById], references: [id])
+  deletedBy       User?                @relation("JobTitleDeletedBy", fields: [deletedById], references: [id])
+  updatedBy       User?                @relation("JobTitleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("job_titles")
+}
+
+model Employee {
+  id                   String               @id @default(uuid())
+  employeeCode         String               @unique @map("employee_code")
+  userId               String?              @unique @map("user_id")
+  fullName             String               @map("full_name")
+  orgLevel             String?              @map("org_level")
+  dob                  DateTime?
+  phone                String?
+  emailCompany         String?              @map("email_company")
+  avatar               String?
+  departmentId         String?              @map("department_id")
+  jobTitleId           String?              @map("job_title_id")
+  managerEmployeeId    String?              @map("manager_employee_id")
+  employmentStatus     EmploymentStatus     @default(PROBATION) @map("employment_status")
+  joinedAt             DateTime?            @map("joined_at")
+  resignedAt           DateTime?            @map("resigned_at")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  nationalId           String?              @map("national_id")
+  placeOfIssue         String?              @map("place_of_issue")
+  dateOfIssue          DateTime?            @map("date_of_issue")
+  gender               Gender?
+  permanentAddress     String?              @map("permanent_address")
+  temporaryAddress     String?              @map("temporary_address")
+  birthPlace           String?              @map("birth_place")
+  ethnicity            String?
+  religion             String?
+  personalEmail        String?              @map("personal_email")
+  bankName             String?              @map("bank_name")
+  bankBranch           String?              @map("bank_branch")
+  bankAccountNo        String?              @map("bank_account_no")
+  socialInsuranceNo    String?              @map("social_insurance_no")
+  healthInsuranceNo    String?              @map("health_insurance_no")
+  taxCode              String?              @map("tax_code")
+  contractType         ContractType?        @map("contract_type")
+  contractStartDate    DateTime?            @map("contract_start_date")
+  contractEndDate      DateTime?            @map("contract_end_date")
+  education            EducationLevel?
+  major                String?
+  school               String?
+  graduationYear       Int?                 @map("graduation_year")
+  accessCardId         String?              @map("access_card_id")
+  accessCardStatus     String?              @map("access_card_status")
+  age                  Int?
+  contractNumber       String?              @map("contract_number")
+  createdById          String?              @map("created_by_id")
+  deletedAt            DateTime?            @map("deleted_at")
+  deletedBatchId       String?              @map("deleted_batch_id")
+  deletedById          String?              @map("deleted_by_id")
+  divisionId           String?              @map("division_id")
+  documentFile         String?              @map("document_file")
+  emergencyContactName String?              @map("emergency_contact_name")
+  emergencyPhone       String?              @map("emergency_phone")
+  factoryId            String?              @map("factory_id")
+  maritalStatus        MaritalStatus?       @map("marital_status")
+  note                 String?
+  recordCode           String?              @map("record_code")
+  referrer             String?              @map("referrer")
+  salaryLevel          String?              @map("salary_level")
+  sectionId            String?              @map("section_id")
+  shoeSize             String?              @map("shoe_size")
+  uniformPantsSize     String?              @map("uniform_pants_size")
+  uniformShirtSize     String?              @map("uniform_shirt_size")
+  updatedById          String?              @map("updated_by_id")
+  companyId            String?              @map("company_id")
+  showOnOrgChart       Boolean              @default(false) @map("show_on_org_chart")
+  uiPositionX          Float?               @map("ui_position_x")
+  uiPositionY          Float?               @map("ui_position_y")
+  positionId           String?              @map("position_id")
+  assetAssignments     AssetAssignment[]
+  bookingAttendees     BookingAttendee[]
+  managedCompanies     Company[]            @relation("CompanyManager")
+  managedDepartments   Department[]         @relation("DepartmentManager")
+  managedDivisions     Division[]           @relation("DivisionManager")
+  contracts            EmployeeContract[]
+  familyMembers        EmployeeFamily[]
+  jobHistory           EmployeeJobHistory[]
+  kpis                 EmployeeKPI[]
+  company              Company?             @relation("EmployeeCompany", fields: [companyId], references: [id])
+  createdBy            User?                @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  deletedBy            User?                @relation("EmployeeDeletedBy", fields: [deletedById], references: [id])
+  department           Department?          @relation("EmployeeDepartment", fields: [departmentId], references: [id])
+  division             Division?            @relation("EmployeeDivision", fields: [divisionId], references: [id])
+  factory              Factory?             @relation(fields: [factoryId], references: [id])
+  jobTitle             JobTitle?            @relation(fields: [jobTitleId], references: [id])
+  manager              Employee?            @relation("EmployeeManager", fields: [managerEmployeeId], references: [id])
+  subordinates         Employee[]           @relation("EmployeeManager")
+  section              Section?             @relation("EmployeeSection", fields: [sectionId], references: [id])
+  updatedBy            User?                @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id])
+  user                 User?                @relation(fields: [userId], references: [id])
+  employmentEvents     EmploymentEvent[]
+  managedFactories     Factory[]            @relation("FactoryManager")
+  itAssets             ITAsset[]
+  leaveApprovals       LeaveApproval[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  mealRegistrations    MealRegistration[]
+  orgChartOverrides    OrgChartOverride[]   @relation("EmployeeOverride")
+  orgChartTargetOf     OrgChartOverride[]   @relation("TargetManagerOverride")
+  projectMemberships   ProjectMember[]
+  assignedTasks        ProjectTask[]
+  managedProjects      Project[]            @relation("ProjectManager")
+  roomBookings         RoomBooking[]
+  managedSections      Section[]            @relation("SectionManager")
+  ticketComments       TicketComment[]
+  delegationsFrom      TicketDelegation[]   @relation("DelegationFrom")
+  delegationsTo        TicketDelegation[]   @relation("DelegationTo")
+  ticket_logs          ticket_logs[]
+  ticketsAssigned      Ticket[]             @relation("TicketAssignee")
+  ticketsRequested     Ticket[]             @relation("TicketRequester")
+  currentPosition      Position?            @relation("EmployeeCurrentPosition", fields: [positionId], references: [id])
+  positionHistory      EmployeePosition[]
+
+  @@index([departmentId])
+  @@index([managerEmployeeId])
+  @@index([positionId])
+  @@index([employmentStatus])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@index([fullName])
+  @@index([emailCompany])
+  @@map("employees")
+}
+
+model Position {
+  id               String             @id @default(uuid())
+  name             String
+  code             String             @unique
+  description      String?
+  departmentId     String?            @map("department_id")
+  sectionId        String?            @map("section_id")
+  parentPositionId String?            @map("parent_position_id")
+  uiPositionX      Float?             @map("ui_position_x")
+  uiPositionY      Float?             @map("ui_position_y")
+  isActive         Boolean            @default(true) @map("is_active")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  department       Department?        @relation("PositionDepartment", fields: [departmentId], references: [id])
+  section          Section?           @relation("PositionSection", fields: [sectionId], references: [id])
+  parent           Position?          @relation("PositionHierarchy", fields: [parentPositionId], references: [id])
+  children         Position[]         @relation("PositionHierarchy")
+  currentHolders   Employee[]         @relation("EmployeeCurrentPosition")
+  assignments      EmployeePosition[]
+
+  @@index([departmentId])
+  @@index([sectionId])
+  @@index([parentPositionId])
+  @@map("positions")
+}
+
+model EmployeePosition {
+  id         String    @id @default(uuid())
+  employeeId String    @map("employee_id")
+  positionId String    @map("position_id")
+  startDate  DateTime  @map("start_date")
+  endDate    DateTime? @map("end_date")
+  isPrimary  Boolean   @default(true) @map("is_primary")
+  note       String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  position   Position  @relation(fields: [positionId], references: [id])
+
+  @@index([employeeId])
+  @@index([positionId])
+  @@map("employee_positions")
+}
+
+model EmployeeContract {
+  id             String       @id @default(uuid())
+  employeeId     String       @map("employee_id")
+  contractNumber String       @map("contract_number")
+  contractType   ContractType @map("contract_type")
+  startDate      DateTime     @map("start_date")
+  endDate        DateTime?    @map("end_date")
+  note           String?      @map("note")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_contracts")
+}
+
+model EmployeeJobHistory {
+  id               String      @id @default(uuid())
+  employeeId       String      @map("employee_id")
+  fromDepartmentId String?     @map("from_department_id")
+  toDepartmentId   String?     @map("to_department_id")
+  fromJobTitleId   String?     @map("from_job_title_id")
+  toJobTitleId     String?     @map("to_job_title_id")
+  effectiveDate    DateTime    @map("effective_date")
+  note             String?
+  createdAt        DateTime    @default(now()) @map("created_at")
+  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fromDepartment   Department? @relation("HistoryFromDept", fields: [fromDepartmentId], references: [id])
+  fromJobTitle     JobTitle?   @relation("HistoryFromJob", fields: [fromJobTitleId], references: [id])
+  toDepartment     Department? @relation("HistoryToDept", fields: [toDepartmentId], references: [id])
+  toJobTitle       JobTitle?   @relation("HistoryToJob", fields: [toJobTitleId], references: [id])
+
+  @@index([employeeId])
+  @@map("employee_job_history")
+}
+
+model JobDescription {
+  id            String    @id @default(uuid())
+  jobTitleId    String?   @map("job_title_id")
+  employeeId    String?   @map("employee_id")
+  content       String
+  version       Int       @default(1)
+  effectiveDate DateTime  @map("effective_date")
+  approvedById  String?   @map("approved_by")
+  approvedAt    DateTime? @map("approved_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  jobTitle      JobTitle? @relation(fields: [jobTitleId], references: [id])
+
+  @@index([jobTitleId])
+  @@map("job_descriptions")
+}
+
+model Document {
+  id               String            @id @default(uuid())
+  type             DocumentType
+  title            String
+  category         String?
+  tags             String[]
+  status           DocumentStatus    @default(DRAFT)
+  currentVersionId String?           @map("current_version_id")
+  createdById      String            @map("created_by")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+  deletedBatchId   String?           @map("deleted_batch_id")
+  deletedById      String?           @map("deleted_by_id")
+  versions         DocumentVersion[]
+  diagrams         ProcessDiagram[]
+
+  @@index([type])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id            String          @id @default(uuid())
+  documentId    String          @map("document_id")
+  versionNo     Int             @map("version_no")
+  content       String?
+  fileId        String?         @map("file_id")
+  effectiveDate DateTime?       @map("effective_date")
+  createdById   String          @map("created_by")
+  approvedById  String?         @map("approved_by")
+  approvedAt    DateTime?       @map("approved_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  chunks        DocumentChunk[]
+  document      Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNo])
+  @@map("document_versions")
+}
+
+model ProcessDiagram {
+  id          String   @id @default(uuid())
+  documentId  String   @map("document_id")
+  versionNo   Int      @map("version_no")
+  diagramJson Json     @map("diagram_json")
+  createdById String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNo])
+  @@map("process_diagrams")
+}
+
+model DocumentChunk {
+  id                String          @id @default(uuid())
+  documentVersionId String          @map("document_version_id")
+  content           String
+  embedding         Float[]
+  metadata          Json?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  documentVersion   DocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
+
+  @@index([documentVersionId])
+  @@map("document_chunks")
+}
+
+model LeaveType {
+  id                 String         @id @default(uuid())
+  code               String         @unique
+  name               String
+  requiresAttachment Boolean        @default(false) @map("requires_attachment")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  leaveRequests      LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id               String          @id @default(uuid())
+  employeeId       String          @map("employee_id")
+  leaveTypeId      String          @map("leave_type_id")
+  startDatetime    DateTime        @map("start_datetime")
+  endDatetime      DateTime        @map("end_datetime")
+  reason           String?
+  attachmentFileId String?         @map("attachment_file_id")
+  status           LeaveStatus     @default(DRAFT)
+  submittedAt      DateTime?       @map("submitted_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  approvals        LeaveApproval[]
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+  leaveType        LeaveType       @relation(fields: [leaveTypeId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDatetime, endDatetime])
+  @@map("leave_requests")
+}
+
+model LeaveApproval {
+  id                 String            @id @default(uuid())
+  leaveRequestId     String            @map("leave_request_id")
+  stepNo             Int               @map("step_no")
+  approverEmployeeId String            @map("approver_employee_id")
+  decision           ApprovalDecision?
+  comment            String?
+  decidedAt          DateTime?         @map("decided_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  approver           Employee          @relation(fields: [approverEmployeeId], references: [id])
+  leaveRequest       LeaveRequest      @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveRequestId, stepNo])
+  @@map("leave_approvals")
+}
+
+model LeaveBalance {
+  id            String   @id @default(uuid())
+  employeeId    String   @map("employee_id")
+  year          Int
+  entitledDays  Decimal  @map("entitled_days") @db.Decimal(5, 2)
+  usedDays      Decimal  @default(0) @map("used_days") @db.Decimal(5, 2)
+  remainingDays Decimal  @default(0) @map("remaining_days") @db.Decimal(5, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year])
+  @@map("leave_balances")
+}
+
+model MeetingRoom {
+  id             String            @id @default(uuid())
+  code           String            @unique
+  name           String
+  location       String?
+  capacity       Int
+  equipmentsJson Json?             @map("equipments_json")
+  seatsJson      Json?             @map("seats_json")
+  color          String?
+  status         MeetingRoomStatus @default(ACTIVE)
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  bookings       RoomBooking[]
+
+  @@map("meeting_rooms")
+}
+
+model RoomBooking {
+  id                  String            @id @default(uuid())
+  roomId              String            @map("room_id")
+  organizerEmployeeId String            @map("organizer_employee_id")
+  title               String
+  description         String?
+  note                String?           @map("note")
+  isPrivate           Boolean           @default(false) @map("is_private")
+  startDatetime       DateTime          @map("start_datetime")
+  endDatetime         DateTime          @map("end_datetime")
+  status              BookingStatus     @default(CONFIRMED)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  attendees           BookingAttendee[]
+  organizer           Employee          @relation(fields: [organizerEmployeeId], references: [id])
+  room                MeetingRoom       @relation(fields: [roomId], references: [id])
+
+  @@index([roomId, startDatetime, endDatetime])
+  @@index([organizerEmployeeId])
+  @@index([status])
+  @@map("room_bookings")
+}
+
+model BookingAttendee {
+  bookingId  String      @map("booking_id")
+  employeeId String      @map("employee_id")
+  booking    RoomBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+
+  @@id([bookingId, employeeId])
+  @@map("booking_attendees")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Shift {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  startTime      String          @map("start_time")
+  endTime        String          @map("end_time")
+  breakMinutes   Int             @default(60) @map("break_minutes")
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  employeeShifts EmployeeShift[]
+
+  @@map("shifts")
+}
+
+model EmployeeShift {
+  id            String    @id @default(uuid())
+  employeeId    String    @map("employee_id")
+  shiftId       String    @map("shift_id")
+  effectiveFrom DateTime  @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  shift         Shift     @relation(fields: [shiftId], references: [id])
+
+  @@index([employeeId])
+  @@map("employee_shifts")
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  employeeId      String           @map("employee_id")
+  date            DateTime         @db.Date
+  checkIn         DateTime?        @map("check_in")
+  checkOut        DateTime?        @map("check_out")
+  checkInMethod   String?          @map("check_in_method")
+  checkOutMethod  String?          @map("check_out_method")
+  workMinutes     Int?             @map("work_minutes")
+  overtimeMinutes Int?             @map("overtime_minutes")
+  status          AttendanceStatus @default(PRESENT)
+  note            String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@map("attendances")
+}
+
+model OvertimeRequest {
+  id           String         @id @default(uuid())
+  employeeId   String         @map("employee_id")
+  date         DateTime       @db.Date
+  startTime    String         @map("start_time")
+  endTime      String         @map("end_time")
+  reason       String?
+  status       OvertimeStatus @default(PENDING)
+  approvedById String?        @map("approved_by")
+  approvedAt   DateTime?      @map("approved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("overtime_requests")
+}
+
+model EmployeeFamily {
+  id           String             @id @default(uuid())
+  employeeId   String             @map("employee_id")
+  name         String             @map("full_name")
+  dob          DateTime?
+  job          String?
+  createdAt    DateTime           @default(now()) @map("created_at")
+  note         String?
+  phoneNumber  String?            @map("phone_number")
+  relationship FamilyRelationship @map("relationship")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  employee     Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_families")
+}
+
+model EmploymentEvent {
+  id             String              @id @default(uuid())
+  employeeId     String              @map("employee_id")
+  eventType      EmploymentEventType @map("event_type")
+  effectiveDate  DateTime            @map("effective_date")
+  endDate        DateTime?           @map("end_date")
+  decisionNumber String?             @map("decision_number")
+  reason         String?
+  note           String?
+  createdAt      DateTime            @default(now()) @map("created_at")
+  employee       Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("employment_events")
+}
+
+model Request {
+  id               String            @id @default(uuid())
+  code             String            @unique
+  title            String
+  content          String
+  type             RequestType
+  status           RequestStatus     @default(DRAFT)
+  requestorId      String            @map("requestor_id")
+  workflowId       String?           @map("workflow_id")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  currentStepOrder Int               @default(0) @map("current_step_order")
+  formData         Json?             @map("form_data")
+  approvals        RequestApproval[]
+  workflow         Workflow?         @relation(fields: [workflowId], references: [id])
+
+  @@index([requestorId])
+  @@index([status])
+  @@map("requests")
+}
+
+model Workflow {
+  id          String         @id @default(uuid())
+  name        String
+  code        String         @unique
+  description String?
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  formSchema  Json?          @map("form_schema")
+  requests    Request[]
+  steps       WorkflowStep[]
+
+  @@map("workflows")
+}
+
+model WorkflowStep {
+  id             String            @id @default(uuid())
+  workflowId     String            @map("workflow_id")
+  order          Int
+  name           String
+  approverRoleId String?           @map("approver_role_id")
+  approverUserId String?           @map("approver_user_id")
+  condition      Json?
+  isFinal        Boolean           @default(false) @map("is_final")
+  type           WorkflowStepType  @default(SEQUENTIAL)
+  approvals      RequestApproval[]
+  workflow       Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, order])
+  @@index([workflowId])
+  @@map("workflow_steps")
+}
+
+model RequestApproval {
+  id         String         @id @default(uuid())
+  requestId  String         @map("request_id")
+  stepId     String?        @map("step_id")
+  approverId String         @map("approver_id")
+  status     ApprovalStatus @default(PENDING)
+  comment    String?
+  reviewedAt DateTime?      @map("reviewed_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  stepOrder  Int            @default(0) @map("step_order")
+  request    Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  step       WorkflowStep?  @relation(fields: [stepId], references: [id])
+
+  @@index([requestId])
+  @@index([approverId])
+  @@map("request_approvals")
+}
+
+model KPIPeriod {
+  id        String        @id @default(uuid())
+  name      String
+  startDate DateTime      @map("start_date")
+  endDate   DateTime      @map("end_date")
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+  kpis      EmployeeKPI[]
+
+  @@map("kpi_periods")
+}
+
+model EmployeeKPI {
+  id             String    @id @default(uuid())
+  employeeId     String    @map("employee_id")
+  periodId       String    @map("period_id")
+  totalScore     Decimal?  @map("total_score") @db.Decimal(5, 2)
+  status         KPIStatus @default(DRAFT)
+  evaluatorId    String?   @map("evaluator_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+  deletedBatchId String?   @map("deleted_batch_id")
+  deletedById    String?   @map("deleted_by_id")
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+  period         KPIPeriod @relation(fields: [periodId], references: [id])
+  items          KPIItem[]
+
+  @@unique([employeeId, periodId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("employee_kpis")
+}
+
+model KPIItem {
+  id            String      @id @default(uuid())
+  employeeKpiId String      @map("employee_kpi_id")
+  name          String
+  target        String?
+  actual        String?
+  weight        Int
+  score         Int?
+  comment       String?
+  kpi           EmployeeKPI @relation(fields: [employeeKpiId], references: [id], onDelete: Cascade)
+
+  @@index([employeeKpiId])
+  @@map("kpi_items")
+}
+
+model Car {
+  id           String       @id @default(uuid())
+  name         String
+  licensePlate String       @unique @map("license_plate")
+  driverName   String?      @map("driver_name")
+  seatCount    Int          @map("seat_count")
+  status       CarStatus    @default(AVAILABLE)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  bookings     CarBooking[]
+
+  @@map("cars")
+}
+
+model CarBooking {
+  id          String        @id @default(uuid())
+  carId       String        @map("car_id")
+  requestorId String        @map("requestor_id")
+  destination String
+  purpose     String?
+  startTime   DateTime      @map("start_time")
+  endTime     DateTime      @map("end_time")
+  status      BookingStatus @default(CONFIRMED)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  car         Car           @relation(fields: [carId], references: [id])
+
+  @@index([carId, startTime, endTime])
+  @@map("car_bookings")
+}
+
+model NewsCategory {
+  id        String        @id @default(uuid())
+  name      String        @unique
+  createdAt DateTime      @default(now()) @map("created_at")
+  articles  NewsArticle[]
+
+  @@map("news_categories")
+}
+
+model NewsArticle {
+  id             String        @id @default(uuid())
+  title          String
+  summary        String?
+  content        String
+  thumbnail      String?
+  isPublished    Boolean       @default(false) @map("is_published")
+  authorId       String        @map("author_id")
+  categoryId     String?       @map("category_id")
+  publishedAt    DateTime?     @map("published_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  deletedBatchId String?       @map("deleted_batch_id")
+  deletedById    String?       @map("deleted_by_id")
+  category       NewsCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([isPublished])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("news_articles")
+}
+
+model Task {
+  id             String        @id @default(uuid())
+  title          String
+  description    String?
+  assignorId     String        @map("assignor_id")
+  assigneeId     String?       @map("assignee_id")
+  deadline       DateTime?
+  status         TaskStatus    @default(TODO)
+  priority       TaskPriority  @default(MEDIUM)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+  deletedBatchId String?       @map("deleted_batch_id")
+  deletedById    String?       @map("deleted_by_id")
+  comments       TaskComment[]
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model VerificationCode {
+  id        String           @id @default(uuid())
+  code      String
+  target    String
+  type      VerificationType
+  expiresAt DateTime         @map("expires_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@index([target, type])
+  @@map("verification_codes")
+}
+
+model Project {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  description    String?
+  startDate      DateTime        @map("start_date")
+  endDate        DateTime?       @map("end_date")
+  status         ProjectStatus   @default(PLANNING)
+  managerId      String          @map("manager_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  deletedAt      DateTime?       @map("deleted_at")
+  deletedBatchId String?         @map("deleted_batch_id")
+  deletedById    String?         @map("deleted_by_id")
+  members        ProjectMember[]
+  tasks          ProjectTask[]
+  manager        Employee        @relation("ProjectManager", fields: [managerId], references: [id])
+
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId  String      @map("project_id")
+  employeeId String      @map("employee_id")
+  role       ProjectRole @default(MEMBER)
+  joinedAt   DateTime    @default(now()) @map("joined_at")
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, employeeId])
+  @@map("project_members")
+}
+
+model ProjectTask {
+  id             String           @id @default(uuid())
+  projectId      String           @map("project_id")
+  parentId       String?          @map("parent_id")
+  title          String
+  description    String?
+  startDate      DateTime?        @map("start_date")
+  dueDate        DateTime?        @map("due_date")
+  duration       Int?
+  progress       Int              @default(0)
+  status         TaskStatus       @default(TODO)
+  priority       TaskPriority     @default(MEDIUM)
+  assigneeId     String?          @map("assignee_id")
+  position       Int              @default(0)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+  deletedBatchId String?          @map("deleted_batch_id")
+  deletedById    String?          @map("deleted_by_id")
+  assignee       Employee?        @relation(fields: [assigneeId], references: [id])
+  parent         ProjectTask?     @relation("TaskHierarchy", fields: [parentId], references: [id])
+  children       ProjectTask[]    @relation("TaskHierarchy")
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  successors     TaskDependency[] @relation("TaskPredecessor")
+  predecessors   TaskDependency[] @relation("TaskSuccessor")
+
+  @@index([projectId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("project_tasks")
+}
+
+model TaskDependency {
+  id            String         @id @default(uuid())
+  predecessorId String         @map("predecessor_id")
+  successorId   String         @map("successor_id")
+  type          DependencyType @default(FINISH_TO_START)
+  predecessor   ProjectTask    @relation("TaskPredecessor", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successor     ProjectTask    @relation("TaskSuccessor", fields: [successorId], references: [id], onDelete: Cascade)
+
+  @@unique([predecessorId, successorId])
+  @@map("task_dependencies")
+}
+
+model MealSession {
+  id               String             @id @default(uuid())
+  name             String
+  code             MealSessionCode    @unique
+  timeStart        String             @map("time_start")
+  timeEnd          String             @map("time_end")
+  cutoffTime       String             @map("cutoff_time")
+  isActive         Boolean            @default(true) @map("is_active")
+  maxRegistrations Int?               @map("max_registrations")
+  defaultPrice     Int                @default(0) @map("default_price")
+  sortOrder        Int                @default(0) @map("sort_order")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  menus            MealMenu[]
+  registrations    MealRegistration[]
+
+  @@map("meal_sessions")
+}
+
+model MealRegistration {
+  id             String        @id @default(uuid())
+  employeeId     String        @map("employee_id")
+  sessionId      String        @map("session_id")
+  date           DateTime      @db.Date
+  status         MealRegStatus @default(REGISTERED)
+  registeredAt   DateTime      @default(now()) @map("registered_at")
+  cancelledAt    DateTime?     @map("cancelled_at")
+  usedAt         DateTime?     @map("used_at")
+  note           String?
+  registeredById String?       @map("registered_by_id")
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+  session        MealSession   @relation(fields: [sessionId], references: [id])
+
+  @@unique([employeeId, sessionId, date])
+  @@index([date, sessionId])
+  @@index([employeeId])
+  @@map("meal_registrations")
+}
+
+model MealMenu {
+  id        String      @id @default(uuid())
+  date      DateTime    @db.Date
+  sessionId String      @map("session_id")
+  mainDish  String?     @map("main_dish")
+  sideDish  String?     @map("side_dish")
+  soup      String?
+  dessert   String?
+  price     Int         @default(0)
+  note      String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  session   MealSession @relation(fields: [sessionId], references: [id])
+
+  @@unique([date, sessionId])
+  @@map("meal_menus")
+}
+
+model AssetCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  icon        String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  assets      ITAsset[]
+
+  @@map("asset_categories")
+}
+
+model ITAsset {
+  id              String             @id @default(uuid())
+  code            String             @unique
+  name            String
+  categoryId      String             @map("category_id")
+  brand           String?
+  model           String?
+  serialNumber    String?            @unique @map("serial_number")
+  purchaseDate    DateTime?          @map("purchase_date")
+  purchasePrice   Int?               @map("purchase_price")
+  warrantyEndDate DateTime?          @map("warranty_end_date")
+  status          AssetStatus        @default(AVAILABLE)
+  condition       AssetCondition     @default(GOOD)
+  location        String?
+  specifications  Json?
+  note            String?
+  assignedToId    String?            @map("assigned_to_id")
+  departmentId    String?            @map("department_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  deletedAt       DateTime?          @map("deleted_at")
+  deletedBatchId  String?            @map("deleted_batch_id")
+  deletedById     String?            @map("deleted_by_id")
+  assignments     AssetAssignment[]
+  maintenances    AssetMaintenance[]
+  assignedTo      Employee?          @relation(fields: [assignedToId], references: [id])
+  category        AssetCategory      @relation(fields: [categoryId], references: [id])
+  department      Department?        @relation(fields: [departmentId], references: [id])
+  tickets         Ticket[]
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("it_assets")
+}
+
+model AssetAssignment {
+  id                String          @id @default(uuid())
+  assetId           String          @map("asset_id")
+  employeeId        String          @map("employee_id")
+  assignedDate      DateTime        @default(now()) @map("assigned_date")
+  returnedDate      DateTime?       @map("returned_date")
+  conditionOnAssign AssetCondition  @default(GOOD) @map("condition_on_assign")
+  conditionOnReturn AssetCondition? @map("condition_on_return")
+  note              String?
+  assignedById      String?         @map("assigned_by_id")
+  asset             ITAsset         @relation(fields: [assetId], references: [id])
+  employee          Employee        @relation(fields: [employeeId], references: [id])
+
+  @@index([assetId])
+  @@index([employeeId])
+  @@map("asset_assignments")
+}
+
+model AssetMaintenance {
+  id            String            @id @default(uuid())
+  assetId       String            @map("asset_id")
+  type          MaintenanceType
+  scheduledDate DateTime          @map("scheduled_date")
+  completedDate DateTime?         @map("completed_date")
+  cost          Int?
+  vendor        String?
+  description   String?
+  status        MaintenanceStatus @default(SCHEDULED)
+  createdAt     DateTime          @default(now()) @map("created_at")
+  asset         ITAsset           @relation(fields: [assetId], references: [id])
+
+  @@index([assetId])
+  @@map("asset_maintenances")
+}
+
+model TicketCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  slaHours    Int      @default(24) @map("sla_hours")
+  createdAt   DateTime @default(now()) @map("created_at")
+  tickets     Ticket[]
+
+  @@map("ticket_categories")
+}
+
+model Ticket {
+  id                 String                @id @default(uuid())
+  code               String                @unique
+  title              String
+  description        String
+  categoryId         String                @map("category_id")
+  priority           TicketPriority        @default(MEDIUM)
+  status             TicketStatus          @default(DRAFT)
+  requesterId        String                @map("requester_id")
+  assigneeId         String?               @map("assignee_id")
+  resolvedAt         DateTime?             @map("resolved_at")
+  closedAt           DateTime?             @map("closed_at")
+  slaDeadline        DateTime?             @map("sla_deadline")
+  resolution         String?
+  rating             Int?
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  assetId            String?               @map("asset_id")
+  currentStepOrder   Int                   @default(0) @map("current_step_order")
+  deletedAt          DateTime?             @map("deleted_at")
+  deletedBatchId     String?               @map("deleted_batch_id")
+  deletedById        String?               @map("deleted_by_id")
+  isApproved         Boolean               @default(false) @map("is_approved")
+  workflowConfigId   String?               @map("workflow_config_id")
+  approvals          TicketApproval[]
+  ticket_attachments ticket_attachments[]
+  comments           TicketComment[]
+  ticket_logs        ticket_logs[]
+  itAsset            ITAsset?              @relation(fields: [assetId], references: [id])
+  assignee           Employee?             @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  category           TicketCategory        @relation(fields: [categoryId], references: [id])
+  requester          Employee              @relation("TicketRequester", fields: [requesterId], references: [id])
+  workflowConfig     TicketWorkflowConfig? @relation("TicketToWorkflowConfig", fields: [workflowConfigId], references: [id])
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([deletedAt])
+  @@index([deletedBatchId])
+  @@map("tickets")
+}
+
+model TicketWorkflowConfig {
+  id           String               @id @default(uuid())
+  name         String
+  description  String?
+  isActive     Boolean              @default(true) @map("is_active")
+  categoryId   String?              @map("category_id")
+  departmentId String?              @map("department_id")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  steps        TicketWorkflowStep[]
+  tickets      Ticket[]             @relation("TicketToWorkflowConfig")
+
+  @@map("ticket_workflow_configs")
+}
+
+model TicketWorkflowStep {
+  id               String               @id @default(uuid())
+  workflowConfigId String               @map("workflow_config_id")
+  order            Int
+  name             String
+  approverType     TicketApproverType   @map("approver_type")
+  approverId       String?              @map("approver_id")
+  approvals        TicketApproval[]
+  workflowConfig   TicketWorkflowConfig @relation(fields: [workflowConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowConfigId, order])
+  @@map("ticket_workflow_steps")
+}
+
+model TicketApproval {
+  id                 String             @id @default(uuid())
+  ticketId           String             @map("ticket_id")
+  stepId             String             @map("step_id")
+  approverId         String             @map("approver_id")
+  originalApproverId String?            @map("original_approver_id")
+  status             ApprovalStatus     @default(PENDING)
+  comment            String?
+  reviewedAt         DateTime?          @map("reviewed_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  step               TicketWorkflowStep @relation(fields: [stepId], references: [id])
+  ticket             Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_approvals")
+}
+
+model TicketDelegation {
+  id             String    @id @default(uuid())
+  fromEmployeeId String    @map("from_employee_id")
+  toEmployeeId   String    @map("to_employee_id")
+  startDate      DateTime  @map("start_date")
+  endDate        DateTime? @map("end_date")
+  isActive       Boolean   @default(true) @map("is_active")
+  note           String?
+  fromEmployee   Employee  @relation("DelegationFrom", fields: [fromEmployeeId], references: [id])
+  toEmployee     Employee  @relation("DelegationTo", fields: [toEmployeeId], references: [id])
+
+  @@map("ticket_delegations")
+}
+
+model TicketComment {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  authorId   String   @map("author_id")
+  content    String
+  isInternal Boolean  @default(false) @map("is_internal")
+  createdAt  DateTime @default(now()) @map("created_at")
+  author     Employee @relation(fields: [authorId], references: [id])
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_comments")
+}
+
+model TableColumnConfig {
+  id          String   @id @default(uuid())
+  moduleKey   String   @map("module_key")
+  columns     Json
+  name        String?  @map("name")
+  applyTo     String   @default("ALL") @map("apply_to")
+  order       Int      @default(0) @map("order")
+  targetId    String?  @map("target_id")
+  createdById String   @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   User     @relation("ConfigCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("ConfigUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([moduleKey, applyTo, targetId])
+  @@index([moduleKey])
+  @@map("table_column_configs")
+}
+
+model ImportHistory {
+  id         String       @id @default(uuid())
+  moduleKey  String       @map("module_key")
+  moduleType String?      @map("module_type")
+  fileName   String       @map("file_name")
+  totalRows  Int          @map("total_rows")
+  success    Int
+  failed     Int
+  errors     Json         @default("[]")
+  status     ImportStatus @default(COMPLETED)
+  userId     String?      @map("user_id")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  user       User?        @relation(fields: [userId], references: [id])
+
+  @@index([moduleKey])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("import_history")
+}
+
+model TrashRetentionConfig {
+  id            String   @id @default(uuid())
+  moduleKey     String   @unique @map("module_key")
+  moduleName    String   @map("module_name")
+  retentionDays Int      @default(30) @map("retention_days")
+  isEnabled     Boolean  @default(true) @map("is_enabled")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedById   String?  @map("updated_by_id")
+  updatedBy     User?    @relation("TrashConfigUpdater", fields: [updatedById], references: [id])
+
+  @@map("trash_retention_configs")
+}
+
+model ticket_attachments {
+  id         String   @id
+  ticket_id  String
+  file_id    String
+  created_at DateTime @default(now())
+  files      File     @relation(fields: [file_id], references: [id], onDelete: Cascade)
+  tickets    Ticket   @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@unique([ticket_id, file_id])
+}
+
+model ticket_logs {
+  id         String    @id
+  ticket_id  String
+  actor_id   String?
+  action     String
+  content    String?
+  created_at DateTime  @default(now())
+  actor      Employee? @relation(fields: [actor_id], references: [id])
+  tickets    Ticket    @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([ticket_id])
+}
+
+enum VisibilityTargetType {
+  USER
+  DEPT
+  DIV
+  FACT
+  COMP
+  GLOBAL
+  ROLE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  CANCEL
+  VIEW_SENSITIVE
+}
+
+enum FactoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum JobTitleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EmploymentStatus {
+  PROBATION
+  OFFICIAL
+  RESIGNED
+  SEASONAL
+  MATERNITY_LEAVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum ContractType {
+  PROBATION
+  INDEFINITE_TERM
+  SEASONAL
+  ONE_YEAR
+  TWO_YEARS
+  THREE_YEARS
+}
+
+enum FamilyRelationship {
+  SPOUSE
+  WIFE
+  HUSBAND
+  FATHER
+  MOTHER
+  CHILD
+  BROTHER
+  SISTER
+}
+
+enum EducationLevel {
+  PRIMARY
+  SECONDARY
+  HIGH_SCHOOL
+  VOCATIONAL
+  COLLEGE
+  UNIVERSITY
+  MASTER
+  DOCTOR
+  GRADE_12_12
+  GRADE_11_12
+  GRADE_10_12
+  GRADE_9_12
+  GRADE_8_12
+  GRADE_7_12
+  GRADE_6_12
+  GRADE_5_12
+  GRADE_4_12
+  GRADE_3_12
+  GRADE_2_12
+  GRADE_1_12
+}
+
+enum DocumentType {
+  POLICY
+  PROCESS
+}
+
+enum DocumentStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum LeaveStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+enum MeetingRoomStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_LEAVE
+  HALF_DAY
+  ON_LEAVE
+  BUSINESS_TRIP
+  WORK_FROM_HOME
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EmploymentEventType {
+  PROBATION
+  OFFICIAL
+  RESIGNED
+  MATERNITY_LEAVE
+  RETURN_TO_WORK
+  SUSPENDED
+}
+
+enum RequestType {
+  PAYMENT
+  PURCHASE
+  PROPOSAL
+  GENERAL
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  IN_PROGRESS
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WorkflowStepType {
+  SEQUENTIAL
+  PARALLEL
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum KPIStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  FINALIZED
+}
+
+enum CarStatus {
+  AVAILABLE
+  MAINTENANCE
+  BUSY
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum VerificationType {
+  PASSWORD_RESET
+  REGISTER_VERIFICATION
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectRole {
+  MANAGER
+  LEADER
+  MEMBER
+  VIEWER
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+enum MealSessionCode {
+  LUNCH
+  AFTERNOON_SNACK
+  DINNER
+  LATE_NIGHT_SNACK
+}
+
+enum MealRegStatus {
+  REGISTERED
+  CANCELLED
+  USED
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  RETIRED
+  LOST
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  BROKEN
+}
+
+enum MaintenanceType {
+  REPAIR
+  UPGRADE
+  INSPECTION
+  REPLACEMENT
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketApproverType {
+  SPECIFIC_USER
+  ROLE
+  DIRECT_MANAGER
+  DEPT_MANAGER
+  IT_STAFF
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  DRAFT
+  DEPT_PENDING
+  IT_PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum ImportStatus {
+  COMPLETED
+  PARTIAL
+  FAILED
+}
+
+enum TicketApprovalStatus {
+  NOT_REQUIRED
+  PENDING_L1
+  PENDING_L2
+  APPROVED
+  REJECTED
+}
+
+enum TicketWorkflowType {
+  SIMPLE
+  FULL
+}

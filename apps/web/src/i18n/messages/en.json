@@ -1,0 +1,116 @@
+{
+    "common": {
+        "appName": "eOffice",
+        "loading": "Loading...",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search",
+        "filter": "Filter",
+        "export": "Export",
+        "import": "Import",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "submit": "Submit",
+        "reset": "Reset",
+        "close": "Close",
+        "yes": "Yes",
+        "no": "No",
+        "all": "All",
+        "none": "None",
+        "actions": "Actions",
+        "status": "Status",
+        "date": "Date",
+        "time": "Time",
+        "name": "Name",
+        "description": "Description",
+        "note": "Note"
+    },
+    "auth": {
+        "login": "Login",
+        "logout": "Logout",
+        "username": "Username",
+        "password": "Password",
+        "forgotPassword": "Forgot password?",
+        "loginSuccess": "Login successful!",
+        "loginFailed": "Login failed",
+        "invalidCredentials": "Invalid username or password",
+        "sessionExpired": "Session expired"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "employees": "Employees",
+        "departments": "Departments",
+        "documents": "Documents",
+        "leaves": "Leaves",
+        "bookings": "Bookings",
+        "timekeeping": "Timekeeping",
+        "settings": "Settings"
+    },
+    "dashboard": {
+        "welcome": "Welcome back",
+        "todaySchedule": "Today's Schedule",
+        "pendingApprovals": "Pending Approvals",
+        "quickActions": "Quick Actions"
+    },
+    "employees": {
+        "title": "Employees List",
+        "addEmployee": "Add Employee",
+        "employeeCode": "Employee Code",
+        "fullName": "Full Name",
+        "email": "Email",
+        "phone": "Phone",
+        "department": "Department",
+        "position": "Position",
+        "status": {
+            "probation": "Probation",
+            "official": "Official",
+            "resigned": "Resigned"
+        }
+    },
+    "leaves": {
+        "title": "Leave Requests",
+        "createLeave": "Create Leave Request",
+        "leaveType": "Leave Type",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "reason": "Reason",
+        "status": {
+            "draft": "Draft",
+            "submitted": "Submitted",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "cancelled": "Cancelled"
+        }
+    },
+    "timekeeping": {
+        "title": "Timekeeping",
+        "checkIn": "Check In",
+        "checkOut": "Check Out",
+        "todayStatus": "Today's Status",
+        "history": "History",
+        "monthlySummary": "Monthly Summary",
+        "status": {
+            "present": "Present",
+            "absent": "Absent",
+            "late": "Late",
+            "earlyLeave": "Early Leave",
+            "onLeave": "On Leave"
+        }
+    },
+    "notifications": {
+        "title": "Notifications",
+        "markAllRead": "Mark all as read",
+        "noNotifications": "No new notifications"
+    },
+    "errors": {
+        "general": "An error occurred",
+        "notFound": "Not found",
+        "unauthorized": "Unauthorized access",
+        "networkError": "Network error",
+        "tryAgain": "Please try again"
+    }
+}
