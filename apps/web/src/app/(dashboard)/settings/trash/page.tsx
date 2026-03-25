@@ -144,7 +144,7 @@ const MODULE_LIST: { value: TrashModule; label: string; icon: any; bgClass: stri
     { value: "divisions", label: "Khối", icon: Landmark, bgClass: "bg-gradient-to-br from-amber-500 to-amber-700", iconClass: "text-white", textClass: "text-amber-600", bgLightClass: "bg-amber-500/10 border-l-amber-500", badgeClass: "bg-amber-500/20 text-amber-700" },
     { value: "departments", label: "Phòng ban", icon: Network, bgClass: "bg-gradient-to-br from-emerald-500 to-emerald-700", iconClass: "text-white", textClass: "text-emerald-600", bgLightClass: "bg-emerald-500/10 border-l-emerald-500", badgeClass: "bg-emerald-500/20 text-emerald-700" },
     { value: "sections", label: "Bộ phận", icon: Component, bgClass: "bg-gradient-to-br from-teal-500 to-teal-700", iconClass: "text-white", textClass: "text-teal-600", bgLightClass: "bg-teal-500/10 border-l-teal-500", badgeClass: "bg-teal-500/20 text-teal-700" },
-    { value: "jobTitles", label: "Chức vụ", icon: Medal, bgClass: "bg-gradient-to-br from-cyan-500 to-cyan-700", iconClass: "text-white", textClass: "text-cyan-600", bgLightClass: "bg-cyan-500/10 border-l-cyan-500", badgeClass: "bg-cyan-500/20 text-cyan-700" },
+    { value: "jobTitles", label: "Chức danh", icon: Medal, bgClass: "bg-gradient-to-br from-cyan-500 to-cyan-700", iconClass: "text-white", textClass: "text-cyan-600", bgLightClass: "bg-cyan-500/10 border-l-cyan-500", badgeClass: "bg-cyan-500/20 text-cyan-700" },
     { value: "employees", label: "Nhân sự", icon: Users, bgClass: "bg-gradient-to-br from-blue-500 to-blue-700", iconClass: "text-white", textClass: "text-blue-600", bgLightClass: "bg-blue-500/10 border-l-blue-500", badgeClass: "bg-blue-500/20 text-blue-700" },
     { value: "users", label: "Tài khoản", icon: UserCircle, bgClass: "bg-gradient-to-br from-indigo-500 to-indigo-700", iconClass: "text-white", textClass: "text-indigo-600", bgLightClass: "bg-indigo-500/10 border-l-indigo-500", badgeClass: "bg-indigo-500/20 text-indigo-700" },
     { value: "roles", label: "Vai trò", icon: ShieldCheck, bgClass: "bg-gradient-to-br from-violet-500 to-violet-700", iconClass: "text-white", textClass: "text-violet-600", bgLightClass: "bg-violet-500/10 border-l-violet-500", badgeClass: "bg-violet-500/20 text-violet-700" },
@@ -419,7 +419,7 @@ export default function TrashPage() {
         <div className="flex flex-col h-[calc(100vh-0rem)] space-y-4 p-2 bg-background">
             {/* ─── Header */}
             <PageHeader
-                title={`Thùng rác: ${activeModuleDef.label}`}
+                title={`THÙNG RÁC: ${activeModuleDef.label.toUpperCase()}`}
                 backHref="/settings"
                 icon={
                     <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center shadow-sm ${activeModuleDef.bgClass}`}>

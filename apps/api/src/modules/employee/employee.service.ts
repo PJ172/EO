@@ -1,4 +1,4 @@
-﻿import {
+import {
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -275,6 +275,7 @@ export class EmployeeService {
         jobTitle: true,
         contracts: true,
         familyMembers: true,
+        currentPosition: true,
         manager: { select: { id: true, fullName: true } },
       },
     });

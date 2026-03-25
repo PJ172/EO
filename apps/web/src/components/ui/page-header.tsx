@@ -18,6 +18,7 @@ interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'ti
     backLabel?: string;
     icon?: React.ReactNode;
     showRefreshIconOnly?: boolean;
+    titleClassName?: string;
 }
 
 export function PageHeader({
@@ -35,6 +36,7 @@ export function PageHeader({
     backLabel,
     icon,
     showRefreshIconOnly = false,
+    titleClassName,
     className,
     ...props
 }: PageHeaderProps) {
@@ -61,7 +63,7 @@ export function PageHeader({
                         </div>
                     )}
                     <div className="space-y-0.5 h-full flex flex-col justify-center overflow-hidden">
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-cyan-400 bg-clip-text text-transparent drop-shadow-sm leading-none py-1 truncate">{title}</h2>
+                        <h2 className={cn("text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-600 to-slate-800 dark:from-slate-300 dark:to-slate-100 bg-clip-text text-transparent leading-none py-1 truncate", titleClassName)}>{title}</h2>
                         {description && (
                             <p className="text-[11px] sm:text-xs text-muted-foreground truncate">
                                 {description}

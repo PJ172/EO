@@ -76,7 +76,7 @@ function getVietnameseModuleName(tableName: string): string {
     users: 'Tài khoản',
     employees: 'Nhân viên',
     departments: 'Phòng ban',
-    jobTitles: 'Chức vụ',
+    jobTitles: 'Chức danh',
     factories: 'Nhà máy',
     documents: 'Tài liệu',
     projects: 'Dự án',
@@ -162,7 +162,7 @@ const REGISTRY: Record<TrashModule, TrashModuleConfig> = {
   },
 
   jobTitles: {
-    label: 'Chức vụ',
+    label: 'Chức danh',
     model: 'jobTitle',
     nameField: 'name',
     codeField: 'code',

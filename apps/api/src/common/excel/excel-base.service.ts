@@ -53,15 +53,26 @@ export class ExcelBaseService {
   }
 
   // ─── Apply PJ-Export / PJ-Import column config from DB ───────────────
+  // Fallback chain: PJ-Export/Import by name → ALL config → defaultCols
   protected async applyColumnConfig(
     moduleKey: string,
-    configName: 'PJ - Export' | 'PJ - Import',
+    configName: 'Export' | 'Import',
     defaultCols: ColDef[],
+    requiredKeys?: string[],
   ): Promise<ColDef[]> {
-    const config = await this.prisma.tableColumnConfig.findFirst({
+    // 1. Try exact name match first
+    let config = await this.prisma.tableColumnConfig.findFirst({
       where: { moduleKey, name: configName },
       orderBy: { updatedAt: 'desc' },
     });
+
+    // 2. Fallback to ALL config if named config not found
+    if (!config) {
+      config = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey, applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     if (!config || !Array.isArray(config.columns)) return defaultCols;
 
@@ -71,12 +82,26 @@ export class ExcelBaseService {
       .sort((a, b) => a.order - b.order);
     const colMap = new Map(defaultCols.map((h) => [h.key, h]));
 
-    return visibleCols.map((c) => {
-      const found = colMap.get(c.key);
-      if (found) return { ...found, header: c.label || found.header };
-      return { header: c.label, key: c.key, width: 15 };
-    });
+    const result = visibleCols
+      .map((c) => {
+        const found = colMap.get(c.key);
+        if (found) {
+          let headerText = c.label || found.header;
+          if (
+            requiredKeys?.includes(c.key) &&
+            headerText &&
+            !headerText.includes('(*)')
+          ) {
+            headerText += ' (*)';
+          }
+          return { ...found, header: headerText };
+        }
+        return { header: c.label, key: c.key, width: 15 };
+      });
+
+    return result.length > 0 ? result : defaultCols;
   }
+
 
   // ─── Send workbook as HTTP download ───────────────────────────────────
   protected async sendExcelResponse(

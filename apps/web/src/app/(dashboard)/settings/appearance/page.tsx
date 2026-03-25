@@ -288,7 +288,7 @@ export default function AppearanceSettingsPage() {
 
             <div className="relative z-10 bg-card/60 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-xl shadow-indigo-500/5 rounded-2xl p-2 animate-in fade-in slide-in-from-top-4 duration-500">
                 <PageHeader
-                    title="Cấu hình hiển thị Module"
+                    title="QUẢN LÝ GIAO DIỆN"
                     backHref="/settings"
                     icon={
                         <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-sm bg-gradient-to-br from-blue-600 to-indigo-700">

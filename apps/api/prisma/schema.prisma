@@ -44,6 +44,9 @@ model User {
   jobTitlesCreated        JobTitle[]               @relation("JobTitleCreatedBy")
   jobTitlesDeleted        JobTitle[]               @relation("JobTitleDeletedBy")
   jobTitlesUpdated        JobTitle[]               @relation("JobTitleUpdatedBy")
+  jobPositionsCreated     JobPosition[]            @relation("JobPositionCreatedBy")
+  jobPositionsDeleted     JobPosition[]            @relation("JobPositionDeletedBy")
+  jobPositionsUpdated     JobPosition[]            @relation("JobPositionUpdatedBy")
   moduleVisibilityConfigs ModuleVisibilityConfig[] @relation("VisibilityGlobal")
   updatedOrgConfigs       OrgChartConfig[]         @relation("OrgConfigUpdater")
   createdOrgOverrides     OrgChartOverride[]       @relation("UserOrgOverrideCreator")
@@ -431,6 +434,33 @@ model JobTitle {
   @@index([deletedAt])
   @@index([deletedBatchId])
   @@map("job_titles")
+}
+
+model JobPosition {
+  id             String            @id @default(uuid())
+  code           String            @unique
+  name           String
+  description    String?
+  status         JobTitleStatus    @default(ACTIVE)
+  departmentId   String?           @map("department_id")
+  jobTitleId     String?           @map("job_title_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  createdById    String?           @map("created_by_id")
+  updatedById    String?           @map("updated_by_id")
+  deletedAt      DateTime?         @map("deleted_at")
+  deletedBatchId String?           @map("deleted_batch_id")
+  deletedById    String?           @map("deleted_by_id")
+  showOnOrgChart Boolean           @default(false) @map("show_on_org_chart")
+  uiPositionX    Float?            @map("ui_position_x")
+  uiPositionY    Float?            @map("ui_position_y")
+  createdBy      User?             @relation("JobPositionCreatedBy", fields: [createdById], references: [id])
+  updatedBy      User?             @relation("JobPositionUpdatedBy", fields: [updatedById], references: [id])
+  deletedBy      User?             @relation("JobPositionDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([deletedAt])
+  @@index([departmentId])
+  @@map("job_positions")
 }
 
 model Employee {
@@ -1594,6 +1624,19 @@ model ticket_logs {
   tickets    Ticket    @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
 
   @@index([ticket_id])
+}
+
+model OrgChartNodePosition {
+  id        String   @id @default(cuid())
+  chartKey  String   @map("chart_key")
+  nodeId    String   @map("node_id")
+  x         Float
+  y         Float
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([chartKey, nodeId])
+  @@index([chartKey])
+  @@map("org_chart_node_positions")
 }
 
 enum VisibilityTargetType {

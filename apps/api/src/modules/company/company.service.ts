@@ -110,7 +110,7 @@ export class CompanyService {
               jobTitle: { select: { id: true, name: true } }
             } 
           },
-          _count: { select: { employees: true, factories: true } },
+          _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } }, factories: { where: { deletedAt: null } } } },
         },
         orderBy,
         skip,
@@ -150,7 +150,7 @@ export class CompanyService {
           where: { deletedAt: null },
           select: { id: true, name: true, code: true },
         },
-        _count: { select: { employees: true } },
+        _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
       },
     });
     if (!company) throw new NotFoundException('Công ty không tồn tại');

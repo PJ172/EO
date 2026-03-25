@@ -43,7 +43,7 @@ export class JobTitleService {
       this.prisma.jobTitle.findMany({
         where,
         include: {
-          _count: { select: { employees: true } },
+          _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
           createdBy: { select: { id: true, username: true } },
           updatedBy: { select: { id: true, username: true } },
         },

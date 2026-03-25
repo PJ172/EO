@@ -29,7 +29,7 @@ const MODULE_LABELS: Record<string, string> = {
     departments: "Đơn vị",
     factories: "Nhà máy",
     employees: "Nhân viên",
-    "job-titles": "Chức vụ",
+    "job-titles": "Chức danh",
 };
 
 const STATUS_CONFIG = {

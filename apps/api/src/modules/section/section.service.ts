@@ -25,6 +25,7 @@ export interface CreateSectionDto {
   managerEmployeeId?: string;
   note?: string;
   status?: 'ACTIVE' | 'INACTIVE';
+  showOnOrgChart?: boolean;
 }
 
 export type UpdateSectionDto = Partial<CreateSectionDto>;
@@ -107,7 +108,7 @@ export class SectionService {
           },
           createdBy: { select: { id: true, username: true, email: true } },
           updatedBy: { select: { id: true, username: true, email: true } },
-          _count: { select: { employees: true } },
+          _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
         },
         orderBy,
         skip,
@@ -138,7 +139,7 @@ export class SectionService {
         },
         createdBy: { select: { id: true, username: true, email: true } },
         updatedBy: { select: { id: true, username: true, email: true } },
-        _count: { select: { employees: true } },
+        _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
       },
     });
     if (!section) throw new NotFoundException('Bộ phận không tồn tại');

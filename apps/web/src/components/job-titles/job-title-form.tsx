@@ -34,8 +34,8 @@ import { capitalizeWords } from "@/lib/utils";
 import { FormDrawerContainer } from "@/components/ui/form-drawer-container";
 
 const formSchema = z.object({
-    code: z.string().min(2, "Mã chức vụ phải có ít nhất 2 ký tự").max(7, "Mã chức vụ có tối đa 7 ký tự"),
-    name: z.string().min(2, "Tên chức vụ phải có ít nhất 2 ký tự"),
+    code: z.string().min(2, "Mã chức danh phải có ít nhất 2 ký tự").max(7, "Mã chức danh có tối đa 7 ký tự"),
+    name: z.string().min(2, "Tên chức danh phải có ít nhất 2 ký tự"),
     description: z.string().optional(),
     status: z.enum(["ACTIVE", "INACTIVE"]),
 });
@@ -95,11 +95,11 @@ export function JobTitleForm({ jobTitleId, initialData, returnUrl = "/job-titles
             if (isEditMode) {
                 const { code, ...updateValues } = values;
                 await updateMutation.mutateAsync({ id: jobTitleId as string, ...updateValues });
-                toast.success("Cập nhật chức vụ thành công");
+                toast.success("Cập nhật chức danh thành công");
                 if (variant === "drawer") onSuccess?.();
             } else {
                 await createMutation.mutateAsync(values);
-                toast.success("Tạo chức vụ thành công");
+                toast.success("Tạo chức danh thành công");
                 if (variant === "drawer") {
                     onSuccess?.();
                     onOpenChange?.(false);
@@ -127,7 +127,7 @@ export function JobTitleForm({ jobTitleId, initialData, returnUrl = "/job-titles
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <FormField control={form.control} name="code" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Mã chức vụ <span className="text-red-500">*</span></FormLabel>
+                                            <FormLabel>Mã chức danh <span className="text-red-500">*</span></FormLabel>
                                             <FormControl>
                                                 <Input 
                                                     placeholder="VD: GD, PGD, TP..." 
@@ -170,7 +170,7 @@ export function JobTitleForm({ jobTitleId, initialData, returnUrl = "/job-titles
     
                                     <FormField control={form.control} name="name" render={({ field }) => (
                                         <FormItem className="md:col-span-2">
-                                            <FormLabel>Tên chức vụ <span className="text-red-500">*</span></FormLabel>
+                                            <FormLabel>Tên chức danh <span className="text-red-500">*</span></FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="VD: Giám đốc kĩ thuật"
@@ -207,7 +207,7 @@ export function JobTitleForm({ jobTitleId, initialData, returnUrl = "/job-titles
             <FormDrawerContainer
                 open={open ?? false}
                 onOpenChange={onOpenChange ?? (() => {})}
-                title={isEditMode ? "Chỉnh sửa Chức vụ" : "Thêm mới Chức vụ"}
+                title={isEditMode ? "Chỉnh sửa Chức danh" : "Thêm mới Chức danh"}
                 size="2xl"
                 footer={
                     <>
@@ -233,7 +233,7 @@ export function JobTitleForm({ jobTitleId, initialData, returnUrl = "/job-titles
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-5xl mx-auto w-full">
             <PageHeader
-                title={isEditMode ? "Chỉnh sửa Chức vụ" : "Thêm mới Chức vụ"}
+                title={isEditMode ? "Chỉnh sửa Chức danh" : "Thêm mới Chức danh"}
                 backHref={returnUrl}
                 icon={
                     <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center shadow-sm ${MODULE_IDENTITIES.JOB_TITLE.solidBg}`}>

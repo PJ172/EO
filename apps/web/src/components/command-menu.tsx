@@ -118,7 +118,7 @@ export function CommandMenu() {
                     </CommandItem>
                     <CommandItem onSelect={() => runCommand(() => router.push("/job-titles"))}>
                         <Briefcase className="mr-2 h-4 w-4" />
-                        <span>Chức vụ</span>
+                        <span>Chức danh</span>
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />

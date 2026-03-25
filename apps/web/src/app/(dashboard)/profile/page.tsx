@@ -226,7 +226,7 @@ export default function ProfilePage() {
                                     </CardHeader>
                                     <CardContent className="space-y-0 divide-y divide-border/50">
                                         <InfoRow icon={Hash} label="Mã nhân viên" value={employee?.employeeCode} />
-                                        <InfoRow icon={Briefcase} label="Chức vụ" value={jobTitleName} />
+                                        <InfoRow icon={Briefcase} label="Chức danh" value={jobTitleName} />
                                         <InfoRow icon={Building2} label="Phòng ban" value={departmentName} />
                                         <InfoRow icon={Building2} label="Bộ phận" value={employee?.section?.name} />
                                         <InfoRow icon={Building2} label="Nhà máy" value={employee?.factory?.name} />

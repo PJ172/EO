@@ -33,6 +33,8 @@ async function main() {
         { code: 'SECTION_MANAGE', description: 'Manage sections', module: 'ORG' },
         { code: 'JOBTITLE_READ', description: 'View job titles', module: 'ORG' },
         { code: 'JOBTITLE_MANAGE', description: 'Manage job titles', module: 'ORG' },
+        { code: 'JOB_POSITION_READ', description: 'View job positions', module: 'ORG' },
+        { code: 'JOB_POSITION_MANAGE', description: 'Manage job positions', module: 'ORG' },
 
         // Documents
         { code: 'DOCUMENT_READ', description: 'View documents', module: 'DOCUMENTS' },
@@ -182,7 +184,7 @@ async function main() {
             code: 'HR', name: 'Human Resources', description: 'HR department staff',
             perms: [
                 'EMPLOYEE_READ', 'EMPLOYEE_CREATE', 'EMPLOYEE_UPDATE', 'EMPLOYEE_DELETE', 'EMPLOYEE_UPLOAD_FILE',
-                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ',
+                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ', 'JOB_POSITION_READ',
                 'LEAVE_VIEW', 'LEAVE_APPROVE', 'LEAVE_MANAGE',
                 'TIMEKEEPING_VIEW', 'TIMEKEEPING_MANAGE', 'TIMEKEEPING_EXPORT',
                 'ROOM_VIEW', 'ROOM_BOOK',
@@ -195,7 +197,7 @@ async function main() {
             code: 'MANAGER', name: 'Manager', description: 'Department manager',
             perms: [
                 'EMPLOYEE_READ',
-                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ',
+                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ', 'JOB_POSITION_READ',
                 'LEAVE_VIEW', 'LEAVE_APPROVE', 'LEAVE_CREATE',
                 'ROOM_VIEW', 'ROOM_BOOK',
                 'PROJECT_READ', 'PROJECT_CREATE', 'PROJECT_UPDATE', 'PROJECT_DELETE',
@@ -213,7 +215,7 @@ async function main() {
             code: 'EMPLOYEE', name: 'Employee', description: 'Regular employee',
             perms: [
                 'EMPLOYEE_READ',
-                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ',
+                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ', 'JOB_POSITION_READ',
                 'LEAVE_CREATE', 'LEAVE_VIEW',
                 'ROOM_VIEW', 'ROOM_BOOK',
                 'TASK_READ', 'TASK_CREATE', 'TASK_UPDATE',

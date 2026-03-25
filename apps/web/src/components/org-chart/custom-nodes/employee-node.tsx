@@ -69,6 +69,7 @@ interface EmployeeNodeProps {
     data: {
         fullName: string;
         jobTitle: string;
+        jobPosition?: string | null;
         avatar: string;
         employeeCode: string;
         hasChildren?: boolean;
@@ -219,8 +220,15 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                 >
                     {data.fullName}
                 </h3>
-                <div className={`mt-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-sm max-w-full line-clamp-1 ${style.badge}`}>
-                    {data.jobTitle || 'Nhân viên'}
+                <div className="flex flex-col items-center w-full gap-1 mt-0.5">
+                    <div className={cn("px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider shadow-sm max-w-full truncate", style.badge)}>
+                        {data.jobTitle || 'Nhân viên'}
+                    </div>
+                    {data.jobPosition && (
+                        <div className="px-2 py-0.5 rounded-md text-[8.5px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 max-w-[95%] truncate">
+                            {data.jobPosition}
+                        </div>
+                    )}
                 </div>
             </div>
 

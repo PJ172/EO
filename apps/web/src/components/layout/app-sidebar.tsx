@@ -35,7 +35,6 @@ import {
     Users,
     Building2,
     FileText,
-    CalendarDays,
     DoorOpen,
     Settings,
     LogOut,
@@ -46,8 +45,6 @@ import {
     Activity,
     Factory,
     BadgeCheck,
-    BarChart3,
-    UtensilsCrossed,
     Monitor,
     Headphones,
     GitMerge,
@@ -73,7 +70,7 @@ const menuItems: MenuGroup[] = [
         title: "Cài đặt Hệ thống",
         items: [
             {
-                title: "Cài đặt hệ thống",
+                title: "Cài đặt",
                 url: "/settings",
                 icon: Settings,
                 permissions: ["SETTINGS_VIEW", "SETTINGS_MANAGE"]
@@ -81,12 +78,19 @@ const menuItems: MenuGroup[] = [
         ],
     },
     {
-        title: "Tổng quan",
+        title: "Chung",
         items: [
             {
-                title: "Dashboard",
-                url: "/dashboard",
+                title: "Tổng quan",
+                url: "/general/dashboard",
                 icon: LayoutDashboard,
+            },
+            {
+                title: "Tin tức",
+                url: "/general/news",
+                icon: FileText,
+                permissions: ["NEWS_READ"],
+                code: "NEWS"
             },
         ],
     },
@@ -94,39 +98,25 @@ const menuItems: MenuGroup[] = [
         title: "Nhân sự",
         items: [
             {
-                title: "Sơ đồ tổ chức",
-                url: "/org-chart",
-                icon: FolderKanban,
-                permissions: ["ORGCHART_VIEW"],
-                code: "ORGCHART"
-            },
-            {
                 title: "Nhân viên",
-                url: "/employees",
+                url: "/hr/employees",
                 icon: Users,
                 permissions: ["EMPLOYEE_READ"],
                 code: "EMPLOYEES"
             },
             {
-                title: "Chấm công",
-                url: "/timekeeping",
-                icon: CalendarDays,
-                permissions: ["TIMEKEEPING_VIEW"],
-                code: "TIMEKEEPING"
+                title: "Sơ đồ tổ chức",
+                url: "/hr/org-chart",
+                icon: FolderKanban,
+                permissions: ["ORGCHART_VIEW"],
+                code: "ORGCHART"
             },
             {
-                title: "Đánh giá KPI",
-                url: "/kpi",
+                title: "Công việc",
+                url: "/hr/tasks",
                 icon: Briefcase,
-                permissions: ["KPI_READ"],
-                code: "KPI"
-            },
-            {
-                title: "Nghỉ phép",
-                url: "/leaves",
-                icon: CalendarDays,
-                permissions: ["LEAVE_VIEW"],
-                code: "LEAVE"
+                permissions: ["TASK_READ"],
+                code: "TASKS"
             },
         ],
     },
@@ -135,61 +125,29 @@ const menuItems: MenuGroup[] = [
         items: [
             {
                 title: "Phòng họp",
-                url: "/bookings",
+                url: "/ga/meetings",
                 icon: DoorOpen,
                 permissions: ["ROOM_VIEW"],
                 code: "BOOKINGS"
             },
             {
                 title: "Đặt xe",
-                url: "/cars",
+                url: "/ga/cars",
                 icon: Briefcase,
                 permissions: ["CAR_READ"],
                 code: "CARS"
             },
-            {
-                title: "Dịch vụ Suất ăn",
-                url: "#",
-                icon: UtensilsCrossed,
-                code: "MEALS",
-                items: [
-                    {
-                        title: "Đăng ký của tôi",
-                        url: "/meals",
-                        permissions: ["MEAL_VIEW"]
-                    },
-                    {
-                        title: "Quản trị Nhà bếp",
-                        url: "/admin/meals",
-                        permissions: ["MEAL_MANAGE"]
-                    }
-                ]
-            },
         ],
     },
     {
-        title: "ISO & Ban hành",
+        title: "ISO",
         items: [
             {
-                title: "Tờ trình",
-                url: "/requests",
-                icon: FileText,
-                permissions: ["REQUEST_READ"],
-                code: "REQUESTS"
-            },
-            {
-                title: "Tài liệu ISO",
-                url: "/documents",
+                title: "Tài liệu",
+                url: "/iso/documents",
                 icon: FileText,
                 permissions: ["DOCUMENT_READ"],
                 code: "DOCUMENTS"
-            },
-            {
-                title: "Tin tức nội bộ",
-                url: "/news",
-                icon: FileText,
-                permissions: ["NEWS_READ"],
-                code: "NEWS"
             },
         ],
     },
@@ -197,57 +155,30 @@ const menuItems: MenuGroup[] = [
         title: "CNTT",
         items: [
             {
-
-                title: "Tài sản IT",
-                url: "/it-assets",
-                icon: Monitor,
-                permissions: ["ASSET_VIEW"],
-                code: "IT_ASSETS"
-            },
-            {
                 title: "IT Ticket",
-                url: "/tickets",
+                url: "/cntt/it-ticket",
                 icon: Headphones,
                 permissions: ["TICKET_VIEW"],
                 code: "TICKETS"
             },
             {
-                title: "Cấu hình IT Workflow",
-                url: "/admin/it-workflows",
+                title: "Thiết bị IT",
+                url: "/cntt/it-assets",
+                icon: Monitor,
+                permissions: ["ASSET_VIEW"],
+                code: "IT_ASSETS"
+            },
+        ],
+    },
+    {
+        title: "Quy trình",
+        items: [
+            {
+                title: "Quy trình IT Ticket",
+                url: "/workflows/workflow-itticket",
                 icon: GitMerge,
                 permissions: ["TICKET_MANAGE"],
                 code: "IT_WORKFLOWS"
-            },
-        ],
-    },
-    {
-        title: "Công việc & Dự án",
-        items: [
-            {
-                title: "Dự án",
-                url: "/projects",
-                icon: FolderKanban,
-                permissions: ["PROJECT_READ"],
-                code: "PROJECTS"
-            },
-            {
-                title: "Công việc",
-                url: "/tasks",
-                icon: Briefcase,
-                permissions: ["TASK_READ"],
-                code: "TASKS"
-            },
-        ],
-    },
-    {
-        title: "Báo cáo",
-        items: [
-            {
-                title: "Báo cáo",
-                url: "/reports",
-                icon: BarChart3,
-                permissions: ["REPORT_VIEW"],
-                code: "REPORTS"
             },
         ],
     },
@@ -302,7 +233,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard">
+                            <Link href="/general/dashboard">
                                 <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                                     <Building2 className="size-8" />
                                 </div>

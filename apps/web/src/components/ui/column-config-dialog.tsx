@@ -52,6 +52,16 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+function generateUUID(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+}
+
 interface ColumnConfigDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -309,7 +319,7 @@ export function ColumnConfigDialog({
                     // Creating new:
                     // - NONE always gets a fresh UUID so it never collides with existing records
                     // - ALL uses upsert (overwriting the single ALL config is intentional)
-                    const targetIdToSave = applyTo === "NONE" ? crypto.randomUUID() : undefined;
+                    const targetIdToSave = applyTo === "NONE" ? generateUUID() : undefined;
                     payload = {
                         moduleKey,
                         columns: colData,
@@ -471,7 +481,7 @@ export function ColumnConfigDialog({
                 moduleKey,
                 columns: colData,
                 applyTo: "NONE",
-                targetId: crypto.randomUUID(),
+                targetId: generateUUID(),
                 name: `${config.name || "Cấu hình"} (Bản sao)`
             });
             refetchConfigs();

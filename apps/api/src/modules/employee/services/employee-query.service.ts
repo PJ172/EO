@@ -297,12 +297,11 @@ export class EmployeeQueryService {
 
      async getOrgChartStructure() {
     const cacheKey = 'org_chart_structure';
-    await this.cacheManager.del(cacheKey); // force fresh — schema changed (id added to node data)
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) return cachedData;
 
     // Fetch all active units
-    const [companies, factories, divisions, departments] =
+    const [companies, factories, divisions, departments, sections] =
       await Promise.all([
         this.prisma.company.findMany({
           where: { deletedAt: null, status: 'ACTIVE', showOnOrgChart: true },
@@ -332,6 +331,13 @@ export class EmployeeQueryService {
           },
           orderBy: [{ uiPositionX: 'asc' }, { createdAt: 'asc' }],
         }),
+        this.prisma.section.findMany({
+          where: { deletedAt: null, status: 'ACTIVE', showOnOrgChart: true },
+          include: {
+            manager: { select: { fullName: true, avatar: true, emailCompany: true, phone: true, jobTitle: { select: { name: true } } } },
+          },
+          orderBy: [{ createdAt: 'asc' }],
+        }),
       ]);
 
     // Fetch all active employees with their unit assignments for robust counting
@@ -342,6 +348,7 @@ export class EmployeeQueryService {
         factoryId: true,
         divisionId: true,
         departmentId: true,
+        sectionId: true,
       },
     });
 
@@ -351,6 +358,7 @@ export class EmployeeQueryService {
       FACTORY: {} as Record<string, number>,
       DIVISION: {} as Record<string, number>,
       DEPARTMENT: {} as Record<string, number>,
+      SECTION: {} as Record<string, number>,
     };
 
     allEmployees.forEach((emp) => {
@@ -358,6 +366,7 @@ export class EmployeeQueryService {
       if (emp.factoryId) counts.FACTORY[emp.factoryId] = (counts.FACTORY[emp.factoryId] || 0) + 1;
       if (emp.divisionId) counts.DIVISION[emp.divisionId] = (counts.DIVISION[emp.divisionId] || 0) + 1;
       if (emp.departmentId) counts.DEPARTMENT[emp.departmentId] = (counts.DEPARTMENT[emp.departmentId] || 0) + 1;
+      if (emp.sectionId) counts.SECTION[emp.sectionId] = (counts.SECTION[emp.sectionId] || 0) + 1;
     });
 
     const nodes: any[] = [];
@@ -399,7 +408,7 @@ export class EmployeeQueryService {
               id: item.managerEmployeeId 
             }
           : null,
-        employeeCount: counts[type as keyof typeof counts][item.id] || 0,
+        employeeCount: (counts[type as keyof typeof counts] as Record<string, number>)[item.id] || 0,
         managerEmployeeId: item.managerEmployeeId,
       };
     };
@@ -500,6 +509,27 @@ export class EmployeeQueryService {
       }
     });
 
+    // Build Section nodes: only for departments that are in the chart
+    const deptIdsInChart = new Set(departments.map(d => d.id));
+    sections.forEach((section) => {
+      if (!section.departmentId || !deptIdsInChart.has(section.departmentId)) return;
+      nodes.push({
+        id: `section-${section.id}`,
+        type: 'orgNode',
+        data: buildNodeData(section, 'SECTION'),
+        position: { x: 0, y: 0 }, // treeLayout will calculate actual position
+      });
+      edges.push({
+        id: `e-dept-${section.departmentId}-sec-${section.id}`,
+        source: `department-${section.departmentId}`,
+        target: `section-${section.id}`,
+        type: 'smoothstep',
+        sourceHandle: 'bottom',
+        targetHandle: 'top',
+        style: { stroke: '#0ea5e9', strokeWidth: 1.5, strokeDasharray: '4 3' },
+      });
+    });
+
 
     // Filter out orphan nodes: nodes with no connections except root-level companies
     const connectedNodeIds = new Set<string>();
@@ -509,13 +539,25 @@ export class EmployeeQueryService {
     });
 
     const filteredNodes = nodes.filter(n => {
-      // Always keep companies (root nodes)
       if (n.id.startsWith('company-')) return true;
-      // Keep nodes that have at least one connection
       return connectedNodeIds.has(n.id);
     });
 
-    const result = { nodes: filteredNodes, edges };
+    // Merge positions from OrgChartNodePosition (per-chart positions take priority)
+    let posMap: Record<string, { x: number; y: number }> = {};
+    try {
+      const savedPositions = await this.prisma.orgChartNodePosition.findMany({
+        where: { chartKey: 'COMPANY' },
+      });
+      savedPositions.forEach((p) => { posMap[p.nodeId] = { x: p.x, y: p.y }; });
+    } catch (_) { /* Table may not exist in older envs */ }
+
+    const mergedNodes = filteredNodes.map(n => ({
+      ...n,
+      position: posMap[n.id] ?? n.position,
+    }));
+
+    const result = { nodes: mergedNodes, edges };
     await this.cacheManager.set(cacheKey, result, 300000); // 5 minutes cache
     return result;
   }
@@ -554,6 +596,7 @@ export class EmployeeQueryService {
         employmentStatus: true,
         managerEmployeeId: true,
         jobTitle: { select: { name: true } },
+        currentPosition: { select: { name: true } },
         department: { select: { name: true } },
         uiPositionX: true,
         uiPositionY: true,
@@ -624,6 +667,7 @@ export class EmployeeQueryService {
             avatar: node.avatar,
             employmentStatus: node.employmentStatus,
             jobTitle: node.jobTitle?.name || '---',
+            jobPosition: node.currentPosition?.name || null,
             department: node.department?.name || '---',
             email: node.emailCompany,
             phone: node.phone,
@@ -715,13 +759,13 @@ export class EmployeeQueryService {
         divisionId: true,
         division: {
           include: {
-            manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } } } },
+            manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } } },
             factory: {
               include: {
-                manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } } } },
+                manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } } },
                 company: {
                   include: {
-                    manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } } } },
+                    manager: { select: { fullName: true, avatar: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } } },
                   }
                 }
               }
@@ -733,6 +777,7 @@ export class EmployeeQueryService {
             id: true, fullName: true, avatar: true,
             employeeCode: true,
             jobTitle: { select: { name: true } },
+            currentPosition: { select: { name: true } },
             emailCompany: true, phone: true,
           },
         },
@@ -759,6 +804,7 @@ export class EmployeeQueryService {
         uiPositionY: true,
         orgLevel: true,
         jobTitle: { select: { name: true } },
+        currentPosition: { select: { name: true } },
         section: { select: { id: true, name: true } },
         emailCompany: true,
         phone: true,
@@ -807,6 +853,7 @@ export class EmployeeQueryService {
                 employmentStatus: true,
                 managerEmployeeId: true,
                 jobTitle: { select: { name: true } },
+                currentPosition: { select: { name: true } },
                 department: { select: { name: true } },
                 emailCompany: true,
                 phone: true,
@@ -840,11 +887,21 @@ export class EmployeeQueryService {
         uiPositionX: null,
         uiPositionY: null,
         jobTitle: department.manager.jobTitle,
+        jobPosition: department.manager.currentPosition?.name || null,
         department: { name: department.name }, // matching shape
         section: null,
       } as any);
       employeeIds.add(rootId);
     }
+
+    // Merge positions from OrgChartNodePosition for this department chart
+    let deptPosMap: Record<string, { x: number; y: number }> = {};
+    try {
+      const savedPositions = await this.prisma.orgChartNodePosition.findMany({
+        where: { chartKey },
+      });
+      savedPositions.forEach((p) => { deptPosMap[p.nodeId] = { x: p.x, y: p.y }; });
+    } catch (_) { /* Table may not exist in older envs */ }
 
     const nodes: any[] = employees.map((emp) => ({
       id: emp.id,
@@ -856,6 +913,7 @@ export class EmployeeQueryService {
         avatar: emp.avatar,
         employmentStatus: emp.employmentStatus,
         jobTitle: emp.jobTitle?.name || '---',
+        jobPosition: emp.currentPosition?.name || null,
         orgLevel: (emp as any).orgLevel || null,
         department: department.name,
         section: emp.section?.name || null,
@@ -865,10 +923,11 @@ export class EmployeeQueryService {
         isExternalManager: !!(emp as any).isExternalManager,
         isGlobalContext: !!(emp as any).isGlobalContext,
       },
-      position:
-          emp.uiPositionX !== null && emp.uiPositionY !== null
-            ? { x: emp.uiPositionX, y: emp.uiPositionY }
-            : { x: 0, y: 0 },
+      position: deptPosMap[emp.id] ?? (
+        emp.uiPositionX !== null && emp.uiPositionY !== null
+          ? { x: emp.uiPositionX, y: emp.uiPositionY }
+          : { x: 0, y: 0 }
+      ),
     }));
 
     const edges: any[] = [];
@@ -1028,16 +1087,16 @@ export class EmployeeQueryService {
 
     // 3. Inject Global Context Chain: always show CTyH → TGĐ → GĐK above the department
     // These nodes come from Division → Factory → Company chain already fetched in department query
-    const globalContextChain: Array<{ id: string; fullName: string; avatar?: string | null; jobTitleName?: string; orgLevel?: string | null }> = [];
+    const globalContextChain: Array<{ id: string; fullName: string; avatar?: string | null; jobTitleName?: string; jobPositionName?: string; orgLevel?: string | null }> = [];
     const div = department.division as any;
     if (div) {
       // Division manager (GĐK)
       if (div.managerEmployeeId && !employeeIds.has(div.managerEmployeeId)) {
         const divMgr = await this.prisma.employee.findUnique({
           where: { id: div.managerEmployeeId },
-          select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } } }
+          select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
         });
-        if (divMgr) globalContextChain.unshift({ id: divMgr.id, fullName: divMgr.fullName, avatar: divMgr.avatar, jobTitleName: divMgr.jobTitle?.name, orgLevel: divMgr.orgLevel });
+        if (divMgr) globalContextChain.unshift({ id: divMgr.id, fullName: divMgr.fullName, avatar: divMgr.avatar, jobTitleName: divMgr.jobTitle?.name, jobPositionName: divMgr.currentPosition?.name, orgLevel: divMgr.orgLevel });
       }
       const fac = div.factory as any;
       if (fac) {
@@ -1045,17 +1104,17 @@ export class EmployeeQueryService {
         if (fac.managerEmployeeId && !employeeIds.has(fac.managerEmployeeId) && !globalContextChain.find(g => g.id === fac.managerEmployeeId)) {
           const facMgr = await this.prisma.employee.findUnique({
             where: { id: fac.managerEmployeeId },
-            select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } } }
+            select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
           });
-          if (facMgr) globalContextChain.unshift({ id: facMgr.id, fullName: facMgr.fullName, avatar: facMgr.avatar, jobTitleName: facMgr.jobTitle?.name, orgLevel: facMgr.orgLevel });
+          if (facMgr) globalContextChain.unshift({ id: facMgr.id, fullName: facMgr.fullName, avatar: facMgr.avatar, jobTitleName: facMgr.jobTitle?.name, jobPositionName: facMgr.currentPosition?.name, orgLevel: facMgr.orgLevel });
         }
         const comp = fac.company as any;
         if (comp && comp.managerEmployeeId && !employeeIds.has(comp.managerEmployeeId) && !globalContextChain.find(g => g.id === comp.managerEmployeeId)) {
           const compMgr = await this.prisma.employee.findUnique({
             where: { id: comp.managerEmployeeId },
-            select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } } }
+            select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
           });
-          if (compMgr) globalContextChain.unshift({ id: compMgr.id, fullName: compMgr.fullName, avatar: compMgr.avatar, jobTitleName: compMgr.jobTitle?.name, orgLevel: compMgr.orgLevel });
+          if (compMgr) globalContextChain.unshift({ id: compMgr.id, fullName: compMgr.fullName, avatar: compMgr.avatar, jobTitleName: compMgr.jobTitle?.name, jobPositionName: compMgr.currentPosition?.name, orgLevel: compMgr.orgLevel });
         }
       }
     }
@@ -1071,6 +1130,7 @@ export class EmployeeQueryService {
             fullName: gEmp.fullName,
             avatar: gEmp.avatar,
             jobTitle: gEmp.jobTitleName || '---',
+            jobPosition: gEmp.jobPositionName || null,
             orgLevel: gEmp.orgLevel,
             isGlobalContext: true,
             isRoot: false,

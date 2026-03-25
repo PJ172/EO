@@ -95,11 +95,17 @@ export class AuditExcelService {
       { header: 'Tên máy (Computer Name)', key: 'computerName', width: 25 },
     ];
 
-    // Fetch export config if 'PJ - Export' config name exists
-    const exportConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'audit-logs', name: 'PJ - Export' },
+    // Fetch export config: Export by name → fallback to ALL config
+    let exportConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'audit-logs', name: { equals: "Export", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!exportConfig) {
+      exportConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'audit-logs', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = defaultHeaders;
     if (exportConfig && Array.isArray(exportConfig.columns)) {

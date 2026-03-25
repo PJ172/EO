@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
@@ -28,32 +28,32 @@ interface SettingGroup {
 
 const settingGroups: SettingGroup[] = [
     {
-        title: "Tổ chức & Nhân sự",
+        title: "TỔ CHỨC & NHÂN SỰ",
         items: [
-            { title: "Công ty", description: "Công ty thành viên", href: "/companies", icon: MODULE_IDENTITIES.COMPANY.icon, color: MODULE_IDENTITIES.COMPANY.color, bgColor: MODULE_IDENTITIES.COMPANY.bgColor },
-            { title: "Nhà máy", description: "Nhà máy, chi nhánh", href: "/factories", icon: MODULE_IDENTITIES.FACTORY.icon, color: MODULE_IDENTITIES.FACTORY.color, bgColor: MODULE_IDENTITIES.FACTORY.bgColor },
-            { title: "Khối", description: "Khối chức năng", href: "/divisions", icon: MODULE_IDENTITIES.DIVISION.icon, color: MODULE_IDENTITIES.DIVISION.color, bgColor: MODULE_IDENTITIES.DIVISION.bgColor },
-            { title: "Phòng ban", description: "Phòng ban nội bộ", href: "/departments", icon: MODULE_IDENTITIES.DEPARTMENT.icon, color: MODULE_IDENTITIES.DEPARTMENT.color, bgColor: MODULE_IDENTITIES.DEPARTMENT.bgColor },
-            { title: "Bộ phận", description: "Bộ phận trong cấu trúc", href: "/sections", icon: MODULE_IDENTITIES.SECTION.icon, color: MODULE_IDENTITIES.SECTION.color, bgColor: MODULE_IDENTITIES.SECTION.bgColor },
-            { title: "Chức vụ", description: "Chức danh, vị trí", href: "/job-titles", icon: MODULE_IDENTITIES.JOB_TITLE.icon, color: MODULE_IDENTITIES.JOB_TITLE.color, bgColor: MODULE_IDENTITIES.JOB_TITLE.bgColor },
-            { title: "Vu1ecb tru00ed / Chu1ee9c vu1ee5", description: "Vu1ecb tru00ed tu1ed5 chu1ee9c, gu00e1n nhu00e2n viu00ean theo ca", href: "/positions", icon: Layers, color: "text-indigo-600 dark:text-indigo-400", bgColor: "bg-indigo-500/10" },
+            { title: "CÔNG TY", description: "Công ty thành viên", href: "/settings/companies", icon: MODULE_IDENTITIES.COMPANY.icon, color: MODULE_IDENTITIES.COMPANY.color, bgColor: MODULE_IDENTITIES.COMPANY.bgColor },
+            { title: "NHÀ MÁY", description: "Nhà máy, chi nhánh", href: "/settings/factories", icon: MODULE_IDENTITIES.FACTORY.icon, color: MODULE_IDENTITIES.FACTORY.color, bgColor: MODULE_IDENTITIES.FACTORY.bgColor },
+            { title: "KHỐI", description: "Khối chức năng", href: "/settings/divisions", icon: MODULE_IDENTITIES.DIVISION.icon, color: MODULE_IDENTITIES.DIVISION.color, bgColor: MODULE_IDENTITIES.DIVISION.bgColor },
+            { title: "PHÒNG BAN", description: "Phòng ban nội bộ", href: "/settings/departments", icon: MODULE_IDENTITIES.DEPARTMENT.icon, color: MODULE_IDENTITIES.DEPARTMENT.color, bgColor: MODULE_IDENTITIES.DEPARTMENT.bgColor },
+            { title: "BỘ PHẬN", description: "Bộ phận trong cấu trúc", href: "/settings/sections", icon: MODULE_IDENTITIES.SECTION.icon, color: MODULE_IDENTITIES.SECTION.color, bgColor: MODULE_IDENTITIES.SECTION.bgColor },
+            { title: "CHỨC DANH", description: "Chức danh, vị trí", href: "/settings/job-titles", icon: MODULE_IDENTITIES.JOB_TITLE.icon, color: MODULE_IDENTITIES.JOB_TITLE.color, bgColor: MODULE_IDENTITIES.JOB_TITLE.bgColor },
+            { title: "VỊ TRÍ CÔNG VIỆC", description: "Vị trí tổ chức, phân công ca", href: "/settings/job-positions", icon: Layers, color: "text-cyan-600 dark:text-cyan-400", bgColor: "bg-cyan-500/10" },
         ]
     },
     {
-        title: "Quy trình & Phê duyệt",
+        title: "QUY TRÌNH",
         items: [
-            { title: "Quy trình duyệt", description: "Luồng phê duyệt đa cấp", href: "/admin/workflows", icon: GitMerge, color: "text-rose-600 dark:text-rose-400", bgColor: "bg-rose-500/10" },
+            { title: "QUY TRÌNH IT TICKET", description: "Luồng duyệt tự động cho IT Ticket", href: "/workflows/workflow-itticket", icon: GitMerge, color: "text-rose-600 dark:text-rose-400", bgColor: "bg-rose-500/10" },
         ]
     },
     {
-        title: "Quản trị Hệ thống",
+        title: "QUẢN TRỊ HỆ THỐNG",
         items: [
-            { title: "Người dùng", description: "Tài khoản, mật khẩu", href: "/settings/users", icon: UserCog, color: "text-violet-600 dark:text-violet-400", bgColor: "bg-violet-500/10" },
-            { title: "Vai trò & Phân quyền", description: "Nhóm quyền hạn", href: "/settings/roles", icon: Shield, color: "text-fuchsia-600 dark:text-fuchsia-400", bgColor: "bg-fuchsia-500/10" },
-            { title: "Giao diện", description: "Bật/tắt module hiển thị", href: "/settings/appearance", icon: Monitor, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-500/10" },
-            { title: "Nhật ký hoạt động", description: "Lịch sử thao tác", href: "/audit-logs", icon: Activity, color: "text-slate-600 dark:text-slate-400", bgColor: "bg-slate-500/10" },
-            { title: "Nhật ký hệ thống", description: "Log hệ thống, lỗi", href: "/settings/audit", icon: Monitor, color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500/10" },
-            { title: "Thùng rác", description: "Dữ liệu đã xóa, khôi phục", href: "/settings/trash", icon: Trash2, color: "text-rose-600 dark:text-rose-400", bgColor: "bg-rose-500/10" },
+            { title: "NGƯỜI DÙNG", description: "Tài khoản, mật khẩu", href: "/settings/users", icon: UserCog, color: "text-violet-600 dark:text-violet-400", bgColor: "bg-violet-500/10" },
+            { title: "PHÂN QUYỀN", description: "Nhóm quyền hạn", href: "/settings/roles", icon: Shield, color: "text-fuchsia-600 dark:text-fuchsia-400", bgColor: "bg-fuchsia-500/10" },
+            { title: "QUẢN LÝ GIAO DIỆN", description: "Bật/tắt module hiển thị", href: "/settings/appearance", icon: Monitor, color: "text-blue-600 dark:text-blue-400", bgColor: "bg-blue-500/10" },
+            { title: "NHẬT KÝ HOẠT ĐỘNG", description: "Lịch sử thao tác", href: "/settings/audit-logs", icon: Activity, color: "text-slate-600 dark:text-slate-400", bgColor: "bg-slate-500/10" },
+            { title: "NHẬT KÝ HỆ THỐNG", description: "Log hệ thống, lỗi", href: "/settings/audit-systems", icon: Monitor, color: "text-orange-600 dark:text-orange-400", bgColor: "bg-orange-500/10" },
+            { title: "THÙNG RÁC", description: "Dữ liệu đã xóa, khôi phục", href: "/settings/trash", icon: Trash2, color: "text-rose-600 dark:text-rose-400", bgColor: "bg-rose-500/10" },
         ]
     }
 ];
@@ -80,7 +80,7 @@ export default function SettingsPage() {
         <div className="flex flex-col h-[calc(100vh-0rem)] space-y-4 p-2 bg-background">
             <div className="bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm rounded-xl p-2 animate-in fade-in slide-in-from-top-4 duration-500">
             <PageHeader
-                title="Cài đặt"
+                title="CÀI ĐẶT"
                 icon={
                     <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-sm bg-gradient-to-br from-slate-500 to-slate-700">
                         <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-white" style={{ margin: '2px' }} />

@@ -1,4 +1,4 @@
-﻿import { z } from "zod";
+import { z } from "zod";
 
 // =====================================
 // Common validation messages in Vietnamese
@@ -351,12 +351,12 @@ export type DepartmentFormData = z.infer<typeof departmentSchema>;
 export const jobTitleSchema = z.object({
   code: z
     .string()
-    .min(1, "Mã chức vụ là bắt buộc")
-    .max(50, "Mã chức vụ tối đa 50 ký tự"),
+    .min(1, "Mã chức danh là bắt buộc")
+    .max(50, "Mã chức danh tối đa 50 ký tự"),
   name: z
     .string()
-    .min(1, "Tên chức vụ là bắt buộc")
-    .max(200, "Tên chức vụ tối đa 200 ký tự"),
+    .min(1, "Tên chức danh là bắt buộc")
+    .max(200, "Tên chức danh tối đa 200 ký tự"),
   level: z.coerce
     .number()
     .int("Cấp bậc phải là số nguyên")

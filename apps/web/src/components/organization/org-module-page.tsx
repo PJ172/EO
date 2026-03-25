@@ -52,9 +52,11 @@ export interface AuditInfo {
 export interface OrgModuleConfig<T> {
     title: string;
     icon: LucideIcon;
+    solidBg?: string;           // full gradient class for icon bg
     accentBorderClass: string;  // full tailwind border class: "border-l-blue-500"
     accentBgClass: string;      // icon bg: "bg-blue-500/10"
     accentTextClass: string;    // icon text: "text-blue-600 dark:text-blue-400"
+    titleGradient?: string;     // gradient for title text
     permissionPrefix: string;
     moduleKey?: string;         // key for column config persistence
     columns: OrgColumnDef<T>[];
@@ -465,7 +467,7 @@ export function OrgModulePage<T>({
                         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Tổng {config.title}</p>
                         <h3 className="text-2xl font-bold mt-1 tracking-tight">{metrics.total}</h3>
                     </div>
-                    <div className={`h-10 w-10 ${config.accentBgClass} rounded-2xl flex items-center justify-center ${config.accentTextClass} shadow-inner`}>
+                    <div className={`h-10 w-10 ${config.solidBg || config.accentBgClass} rounded-2xl flex items-center justify-center ${config.solidBg ? 'text-white' : config.accentTextClass} shadow-sm`}>
                         <ModuleIcon className="h-5 w-5" />
                     </div>
                 </div>
@@ -499,10 +501,13 @@ export function OrgModulePage<T>({
                     backLabel="Quay về Cài đặt"
                     title={
                         <div className="flex items-center gap-2.5">
-                            <div className={`h-9 w-9 ${config.accentBgClass} rounded-xl flex items-center justify-center ${config.accentTextClass} shadow-sm`}>
+                            <div className={`h-9 w-9 ${config.solidBg || config.accentBgClass} rounded-xl flex items-center justify-center ${config.solidBg ? 'text-white' : config.accentTextClass} shadow-sm`}>
                                 <ModuleIcon className="h-4.5 w-4.5" />
                             </div>
-                            <span className="font-bold tracking-tight">Quản lý {config.title}</span>
+                            <span className="font-bold tracking-wide uppercase">Quản lý </span>
+                            <span className={`font-bold tracking-wide uppercase bg-gradient-to-r ${config.titleGradient || 'from-slate-700 to-slate-900 dark:from-slate-200 dark:to-slate-400'} bg-clip-text text-transparent`}>
+                                {config.title}
+                            </span>
                             {search && (
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${config.accentBgClass} ${config.accentTextClass} animate-in zoom-in`}>
                                     {data.length} kết quả

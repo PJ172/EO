@@ -50,7 +50,7 @@ export class JobTitleExcelService {
 
   async exportJobTitles(res: any, params: { search?: string }, user?: any) {
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Danh sách Chức vụ');
+    const worksheet = workbook.addWorksheet('Danh sách Chức danh');
 
     // Check if user is admin
     const isAdmin = user?.roles?.some(
@@ -62,8 +62,8 @@ export class JobTitleExcelService {
 
     // Define columns
     const columns = [
-      { header: 'Mã Chức vụ', key: 'code', width: 15 },
-      { header: 'Tên Chức vụ', key: 'name', width: 30 },
+      { header: 'Mã Chức danh', key: 'code', width: 15 },
+      { header: 'Tên Chức danh', key: 'name', width: 30 },
       { header: 'Mô tả', key: 'description', width: 40 },
       { header: 'SL Nhân viên', key: 'employeeCount', width: 15 },
     ];
@@ -77,11 +77,17 @@ export class JobTitleExcelService {
       );
     }
 
-    // Fetch export config if 'PJ - Export' config name exists
-    const exportConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'job-titles', name: 'PJ - Export' },
+    // Fetch export config: Export by name → fallback to ALL config
+    let exportConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'job-titles', name: { equals: "Export", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!exportConfig) {
+      exportConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'job-titles', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = columns;
     if (exportConfig && Array.isArray(exportConfig.columns)) {
@@ -155,7 +161,7 @@ export class JobTitleExcelService {
     );
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename=Export_Chucvu.xlsx',
+      'attachment; filename=Export_Chucdanh.xlsx',
     );
 
     await workbook.xlsx.write(res);
@@ -166,17 +172,23 @@ export class JobTitleExcelService {
     const worksheet = workbook.addWorksheet('Mẫu nhập');
 
     const defaultHeaders = [
-      { header: 'Mã Chức vụ (*)', key: 'code', width: 20 },
-      { header: 'Tên Chức vụ (*)', key: 'name', width: 30 },
+      { header: 'Mã Chức danh (*)', key: 'code', width: 20 },
+      { header: 'Tên Chức danh (*)', key: 'name', width: 30 },
       { header: 'Mô tả', key: 'description', width: 40 },
       { header: 'Trạng thái (*)', key: 'status', width: 25 },
     ];
 
-    // Read PJ - Import config
-    const importConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'job-titles', name: 'PJ - Import' },
+    // Read Import config → fallback to ALL config
+    let importConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'job-titles', name: { equals: "Import", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!importConfig) {
+      importConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'job-titles', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = defaultHeaders;
     if (importConfig && Array.isArray(importConfig.columns)) {
@@ -274,8 +286,8 @@ export class JobTitleExcelService {
     };
 
     const JOBTITLE_ALIASES: Record<string, string[]> = {
-      code: ['mã chức vụ', 'code'],
-      name: ['tên chức vụ', 'name'],
+      code: ['mã chức danh', 'mã chức vụ', 'code'],
+      name: ['tên chức danh', 'tên chức vụ', 'name'],
       description: ['mô tả', 'description'],
       status: ['trạng thái', 'status'],
     };
@@ -295,7 +307,7 @@ export class JobTitleExcelService {
 
     if (!colMap['code'] || !colMap['name']) {
       throw new BadRequestException(
-        'File thiếu các cột bắt buộc: Mã Chức vụ, Tên Chức vụ. Vui lòng tải lại file mẫu.',
+        'File thiếu các cột bắt buộc: Mã Chức danh, Tên Chức danh. Vui lòng tải lại file mẫu.',
       );
     }
 
@@ -336,11 +348,11 @@ export class JobTitleExcelService {
     for (const row of rows) {
       if (!row.code)
         validationErrors.push(
-          `Dòng ${row.rowNumber}: [Mã chức vụ] là bắt buộc`,
+          `Dòng ${row.rowNumber}: [Mã chức danh] là bắt buộc`,
         );
       if (!row.name)
         validationErrors.push(
-          `Dòng ${row.rowNumber}: [Tên chức vụ] là bắt buộc`,
+          `Dòng ${row.rowNumber}: [Tên chức danh] là bắt buộc`,
         );
       // Strict Format Check: CV + 5 digits
       if (row.code && !/^CV\d{5}$/.test(row.code)) {
@@ -384,8 +396,8 @@ export class JobTitleExcelService {
 
     // Config-driven header mapping (Phase 2.2)
     const JOBTITLE_ALIASES: Record<string, string[]> = {
-      code: ['mã chức vụ', 'code'],
-      name: ['tên chức vụ', 'name'],
+      code: ['mã chức danh', 'mã chức vụ', 'code'],
+      name: ['tên chức danh', 'tên chức vụ', 'name'],
       description: ['mô tả', 'description'],
       status: ['trạng thái', 'status'],
     };
@@ -405,7 +417,7 @@ export class JobTitleExcelService {
 
     if (!colMap['code'] || !colMap['name']) {
       throw new BadRequestException(
-        'File thiếu các cột bắt buộc: Mã Chức vụ, Tên Chức vụ. Vui lòng tải lại file mẫu.',
+        'File thiếu các cột bắt buộc: Mã Chức danh, Tên Chức danh. Vui lòng tải lại file mẫu.',
       );
     }
 
@@ -456,11 +468,11 @@ export class JobTitleExcelService {
     for (const row of rows) {
       if (!row.code)
         validationErrors.push(
-          `Dòng ${row.rowNumber}: [Mã chức vụ] là bắt buộc`,
+          `Dòng ${row.rowNumber}: [Mã chức danh] là bắt buộc`,
         );
       if (!row.name)
         validationErrors.push(
-          `Dòng ${row.rowNumber}: [Tên chức vụ] là bắt buộc`,
+          `Dòng ${row.rowNumber}: [Tên chức danh] là bắt buộc`,
         );
       // Strict Format Check: CV + 5 digits
       if (row.code && !/^CV\d{5}$/.test(row.code)) {

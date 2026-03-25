@@ -166,11 +166,17 @@ export class OrganizationExcelService {
       ? moduleKeyMap[type] || 'departments'
       : 'departments';
 
-    // Fetch export config if 'PJ - Export' config name exists
-    const exportConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: currentModuleKey, name: 'PJ - Export' },
+    // Fetch export config: Export by name → fallback to ALL config
+    let exportConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: currentModuleKey, name: { equals: "Export", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!exportConfig) {
+      exportConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: currentModuleKey, applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = columns;
     if (exportConfig && Array.isArray(exportConfig.columns)) {
@@ -529,12 +535,18 @@ export class OrganizationExcelService {
       { header: 'Mã Quản lý (Mã NV)', key: 'managerCode', width: 20 },
     ];
 
-    // Apply PJ-Import config if exists
+    // Apply PJ-Import config: by name → fallback to ALL config
     const moduleKey = meta?.moduleKey ?? 'departments';
-    const importConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey, name: 'PJ - Import' },
+    let importConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey, name: { equals: "Import", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!importConfig) {
+      importConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey, applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     if (importConfig && Array.isArray(importConfig.columns)) {
       const configCols = importConfig.columns as any[];
@@ -616,7 +628,7 @@ export class OrganizationExcelService {
       )
     ) {
       const dictionarySheet = workbook.addWorksheet('Danh Mục');
-      dictionarySheet.state = 'hidden'; // Hide the dictionary sheet
+      dictionarySheet.state = 'veryHidden'; // Strictly hide the dictionary sheet
       dictionarySheet.columns = [
         { header: 'Đơn Vị Cấp Trên', key: 'parent', width: 40 },
         { header: 'Nhân Viên', key: 'employee', width: 40 },
@@ -627,24 +639,24 @@ export class OrganizationExcelService {
         let parentItems: any[] = [];
         if (orgType === 'FACTORY') {
           parentItems = await this.prisma.company.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { code: true, name: true },
           });
         } else if (orgType === 'DIVISION') {
           parentItems = [{ code: 'Tổng giám đốc', name: '' }];
         } else if (orgType === 'DEPARTMENT') {
           parentItems = await this.prisma.division.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { code: true, name: true },
           });
         } else if (orgType === 'SECTION') {
           parentItems = await this.prisma.department.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { code: true, name: true },
           });
         } else if (orgType === 'GROUP') {
           parentItems = await this.prisma.section.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { code: true, name: true },
           });
         }

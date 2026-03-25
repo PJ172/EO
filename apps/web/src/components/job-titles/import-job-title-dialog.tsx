@@ -13,8 +13,8 @@ interface ImportJobTitleDialogProps {
 
 export function ImportJobTitleDialog({
     onSuccess,
-    title = "Nhập Excel – Chức vụ",
-    description = "Tải file mẫu, điền thông tin và upload để thêm/cập nhật nhiều chức vụ cùng lúc.",
+    title = "Nhập Excel – Chức danh",
+    description = "Tải file mẫu, điền thông tin và upload để thêm/cập nhật nhiều chức danh cùng lúc.",
     open = false,
     onOpenChange,
 }: ImportJobTitleDialogProps) {
@@ -28,7 +28,7 @@ export function ImportJobTitleDialog({
             onOpenChange={onOpenChange ?? (() => { })}
             title={title}
             description={description}
-            entityLabel="chức vụ"
+            entityLabel="chức danh"
             maxRows={500}
             onDownloadTemplate={async () => {
                 await downloadTemplate.mutateAsync();

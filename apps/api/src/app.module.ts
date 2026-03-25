@@ -26,30 +26,25 @@ import { FactoryModule } from './modules/factory/factory.module';
 import { CompanyModule } from './modules/company/company.module';
 import { DivisionModule } from './modules/division/division.module';
 import { SectionModule } from './modules/section/section.module';
-import { LeaveModule } from './modules/leave';
-import { TimekeepingModule } from './modules/timekeeping';
+
 import { NotificationsModule } from './modules/notifications';
 import { AuditModule } from './modules/audit/audit.module'; // Import AuditModule
 import { OrganizationModule } from './modules/organization/organization.module';
 import { JobTitleModule } from './modules/job-title/job-title.module';
+import { JobPositionModule } from './modules/job-position/job-position.module';
 import { FilesModule } from './modules/files/files.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { BookingModule } from './modules/booking/booking.module'; // Import BookingModule
-import { RequestsModule } from './modules/requests/requests.module';
-import { KPIModule } from './modules/kpi/kpi.module';
+
 import { CarBookingModule } from './modules/car-booking/car-booking.module';
 import { NewsModule } from './modules/news/news.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
-import { ProjectsModule } from './modules/projects/projects.module';
-import { DashboardModule } from './modules/dashboard/dashboard.module';
-import { ReportModule } from './modules/report/report.module';
-import { MealModule } from './modules/meal/meal.module';
+
 import { ITAssetModule } from './modules/it-asset/it-asset.module';
 import { TicketModule } from './modules/ticket/ticket.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
-import { SharedModule } from './shared/shared.module';
 import { ColumnConfigModule } from './modules/column-config/column-config.module';
 import { TrashModule } from './modules/trash/trash.module';
 import { TrashCleanupCron } from './shared/trash-cleanup.cron';
@@ -85,29 +80,21 @@ import { ScheduleModule } from '@nestjs/schedule';
     CompanyModule,
     DivisionModule,
     SectionModule,
-    LeaveModule,
-    TimekeepingModule,
     NotificationsModule,
     OrganizationModule,
     JobTitleModule,
+    JobPositionModule,
     FilesModule,
     DocumentsModule,
     BookingModule,
-    RequestsModule,
-    KPIModule,
     CarBookingModule,
     NewsModule,
     TasksModule,
     UsersModule,
     RolesModule,
-    ProjectsModule,
-    DashboardModule,
-    ReportModule,
-    MealModule,
     ITAssetModule,
     TicketModule,
     WorkflowModule,
-    SharedModule,
     ColumnConfigModule,
     TrashModule,
     ImportHistoryModule,

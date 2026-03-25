@@ -113,7 +113,7 @@ export class DivisionService {
               jobTitle: { select: { id: true, name: true } }
             } 
           },
-          _count: { select: { employees: true, departments: true } },
+          _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } }, departments: { where: { deletedAt: null } } } },
         },
         orderBy,
         skip,
@@ -154,7 +154,7 @@ export class DivisionService {
           where: { deletedAt: null },
           select: { id: true, name: true, code: true },
         },
-        _count: { select: { employees: true } },
+        _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
       },
     });
     if (!division) throw new NotFoundException('Khối không tồn tại');

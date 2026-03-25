@@ -777,7 +777,8 @@ export default function UsersPage() {
             {/* ─── Header ─── */}
             <div className="bg-card/60 backdrop-blur-xl border border-border/50 shadow-sm rounded-xl p-2 animate-in fade-in slide-in-from-top-4 duration-500">
                 <PageHeader
-                    title="Quản lý Người dùng"
+                    title="QUẢN LÝ NGƯỜI DÙNG"
+                    titleClassName="from-blue-500 to-blue-700 dark:from-blue-400 dark:to-blue-300"
                     icon={
                         <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-sm bg-gradient-to-br from-blue-500 to-blue-700">
                             <UsersIcon className="h-4 w-4 sm:h-5 sm:w-5 text-white" style={{ margin: '2px' }} />

@@ -71,7 +71,7 @@ export class OrganizationService {
         _count: {
           select: {
             employees: {
-              where: { deletedAt: null },
+              where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } },
             },
           },
         },
@@ -365,6 +365,41 @@ export class OrganizationService {
     }
   }
 
+  async saveNodePositionByChart(chartKey: string, nodeId: string, x: number, y: number) {
+    return this.prisma.orgChartNodePosition.upsert({
+      where: { chartKey_nodeId: { chartKey, nodeId } },
+      update: { x, y },
+      create: { chartKey, nodeId, x, y },
+    });
+  }
+
+  async saveBulkNodePositionsByChart(
+    chartKey: string,
+    positions: { nodeId: string; x: number; y: number }[],
+  ) {
+    if (!chartKey) throw new BadRequestException('chartKey là bắt buộc');
+    const updates = positions.map((pos) =>
+      this.saveNodePositionByChart(chartKey, pos.nodeId, pos.x, pos.y),
+    );
+    try {
+      await Promise.all(updates);
+    } catch (error) {
+      throw new BadRequestException('Lỗi khi lưu tọa độ: ' + (error.message || ''));
+    }
+    await this.cacheManager.del('org_chart_structure');
+    return { success: true };
+  }
+
+  async getNodePositionsByChart(chartKey: string): Promise<Record<string, { x: number; y: number }>> {
+    const records = await this.prisma.orgChartNodePosition.findMany({
+      where: { chartKey },
+    });
+    const map: Record<string, { x: number; y: number }> = {};
+    records.forEach((r) => { map[r.nodeId] = { x: r.x, y: r.y }; });
+    return map;
+  }
+
+  // Legacy: kept for backward compatibility (single-node position on entity)
   async saveNodePosition(nodeId: string, x: number, y: number) {
     console.log(`[saveNodePosition] Received nodeId: ${nodeId}, x: ${x}, y: ${y}`);
     const node = this.parseNode(nodeId);
@@ -376,36 +411,18 @@ export class OrganizationService {
 
     switch (node.type) {
       case 'COMPANY':
-        return this.prisma.company.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        return this.prisma.company.update({ where: { id: node.id }, data: updateData });
       case 'FACTORY':
-        return this.prisma.factory.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        return this.prisma.factory.update({ where: { id: node.id }, data: updateData });
       case 'DIVISION':
-        return this.prisma.division.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        return this.prisma.division.update({ where: { id: node.id }, data: updateData });
       case 'DEPARTMENT':
-        return this.prisma.department.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        return this.prisma.department.update({ where: { id: node.id }, data: updateData });
       case 'SECTION':
-        return this.prisma.section.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        return this.prisma.section.update({ where: { id: node.id }, data: updateData });
       case 'EMPLOYEE':
       case 'EMPLOYEENODE': {
-        const emp = await this.prisma.employee.update({
-          where: { id: node.id },
-          data: updateData,
-        });
+        const emp = await this.prisma.employee.update({ where: { id: node.id }, data: updateData });
         if (emp.departmentId) {
           await this.cacheManager.del(`org_chart_hierarchy:${emp.departmentId}`);
           await this.cacheManager.del(`dept_org_chart:${emp.departmentId}`);
@@ -422,20 +439,14 @@ export class OrganizationService {
     positions: { nodeId: string; x: number; y: number }[],
   ) {
     console.log(`[saveBulkNodePositions] Received ${positions.length} positions.`);
-    
-    // Run all updates concurrently, allowing errors to bubble up!
     const updates = positions.map((pos) => this.saveNodePosition(pos.nodeId, pos.x, pos.y));
-    
     try {
       await Promise.all(updates);
     } catch (error) {
-           console.error(`[saveBulkNodePositions] FATAL ERROR during bulk save:`, error);
-           throw new BadRequestException('Một hoặc nhiều vị trí lưu bị thất bại do lỗi CSDL: ' + (error.message || ''));
+      console.error(`[saveBulkNodePositions] FATAL ERROR during bulk save:`, error);
+      throw new BadRequestException('Một hoặc nhiều vị trí lưu bị thất bại do lỗi CSDL: ' + (error.message || ''));
     }
-
-    // Invalidate org chart structure cache so that F5 shows new positions immediately
     await this.cacheManager.del('org_chart_structure');
-
     return { success: true };
   }
 

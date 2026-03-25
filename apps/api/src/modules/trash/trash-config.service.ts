@@ -34,7 +34,7 @@ const DEFAULT_CONFIGS = [
   },
   {
     moduleKey: 'jobTitles',
-    moduleName: 'Chức vụ',
+    moduleName: 'Chức danh',
     retentionDays: 30,
     isEnabled: true,
   },

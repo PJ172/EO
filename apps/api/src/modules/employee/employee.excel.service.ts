@@ -210,7 +210,8 @@ export class EmployeeExcelService {
       { header: 'Khối', key: 'division', width: 15 },
       { header: 'Phòng ban', key: 'department', width: 20 },
       { header: 'Bộ phận', key: 'section', width: 20 },
-      { header: 'Chức vụ', key: 'jobTitle', width: 20 },
+      { header: 'Chức danh', key: 'jobTitle', width: 20 },
+      { header: 'Vị trí công việc', key: 'jobPosition', width: 20 },
       { header: 'Quản lý', key: 'manager', width: 25 },
       { header: 'Trạng thái', key: 'employmentStatus', width: 12 },
       { header: 'Ngày vào làm', key: 'joinedAt', width: 12 },
@@ -228,11 +229,17 @@ export class EmployeeExcelService {
       { header: 'Người cập nhật', key: 'updatedBy', width: 20 },
     ];
 
-    // Fetch export config if 'PJ - Export' config name exists
-    const exportConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'employees', name: 'PJ - Export' },
+    // Fetch export config: Export by name → fallback to ALL config
+    let exportConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'employees', name: { equals: "Export", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!exportConfig) {
+      exportConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'employees', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = defaultHeaders;
     if (exportConfig && Array.isArray(exportConfig.columns)) {
@@ -507,7 +514,8 @@ export class EmployeeExcelService {
       { header: 'Tên Khối', key: 'divisionCode', width: 25 },
       { header: 'Tên Phòng ban', key: 'departmentCode', width: 25 },
       { header: 'Tên Bộ phận', key: 'sectionCode', width: 25 },
-      { header: 'Tên Chức vụ', key: 'jobTitleCode', width: 25 },
+      { header: 'Tên Chức danh', key: 'jobTitleCode', width: 25 },
+      { header: 'Tên Vị trí công việc', key: 'jobPositionCode', width: 25 },
       { header: 'Quản lý trực tiếp', key: 'managerCode', width: 15 },
       { header: 'Trạng thái', key: 'employmentStatus', width: 15 },
       { header: 'Ngày vào làm', key: 'joinedAt', width: 25 },
@@ -523,10 +531,17 @@ export class EmployeeExcelService {
       { header: 'Người cập nhật', key: 'updatedBy', width: 20 },
     ];
 
-    const importConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'employees', name: 'PJ - Import' },
+    // Fetch import config: Import by name → fallback to ALL config
+    let importConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'employees', name: { equals: "Import", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!importConfig) {
+      importConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'employees', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = defaultHeaders;
     if (importConfig && Array.isArray(importConfig.columns)) {
@@ -598,6 +613,7 @@ export class EmployeeExcelService {
       departmentCode: 'Phòng sản xuất',
       sectionCode: 'Tổ cơ khí',
       jobTitleCode: 'DEV',
+      jobPositionCode: 'DEV_LEAD',
       managerCode: 'ADMIN',
       employmentStatus: 'Thử việc',
       joinedAt: '01/01/2024',
@@ -698,16 +714,15 @@ export class EmployeeExcelService {
     // Removed worksheet protection to allow users to easily insert data and avoid locked cell issues
 
     // --- Create Data Dictionary Sheet ---
-    const dictionarySheet = workbook.addWorksheet('Danh Mục', {
-      state: 'visible', // Optional: Set to 'hidden' later if preferred
-    });
+    const dictionarySheet = workbook.addWorksheet('Danh Mục', { state: 'veryHidden' });
     dictionarySheet.columns = [
       { header: 'Công Ty', key: 'company', width: 25 },
       { header: 'Nhà Máy', key: 'factory', width: 25 },
       { header: 'Khối', key: 'division', width: 25 },
       { header: 'Phòng Ban', key: 'department', width: 25 },
       { header: 'Bộ Phận', key: 'section', width: 25 },
-      { header: 'Chức Vụ', key: 'jobTitle', width: 25 },
+      { header: 'Chức Danh', key: 'jobTitle', width: 25 },
+      { header: 'Vị trí CV', key: 'jobPosition', width: 25 },
     ];
     this.formatHeaderRow(dictionarySheet, 'FF9E9E9E');
 
@@ -724,40 +739,46 @@ export class EmployeeExcelService {
       return data;
     };
 
-    const [companies, factories, divisions, depts, sections, jobTitles] =
+    const [companies, factories, divisions, depts, sections, jobTitles, jobPositions] =
       await Promise.all([
         getCached('lookup:companies', () =>
           this.prisma.company.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { name: true, code: true },
           }),
         ),
         getCached('lookup:factories', () =>
           this.prisma.factory.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { name: true, code: true },
           }),
         ),
         getCached('lookup:divisions', () =>
           this.prisma.division.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { name: true, code: true },
           }),
         ),
         getCached('lookup:departments', () =>
           this.prisma.department.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { name: true, code: true },
           }),
         ),
         getCached('lookup:sections', () =>
           this.prisma.section.findMany({
-            where: { deletedAt: null, status: 'ACTIVE' },
+            where: { deletedAt: null, status: 'ACTIVE', excludeFromFilters: false },
             select: { name: true, code: true },
           }),
         ),
         getCached('lookup:job-titles', () =>
           this.prisma.jobTitle.findMany({
+            where: { deletedAt: null, status: 'ACTIVE' },
+            select: { name: true, code: true },
+          }),
+        ),
+        getCached('lookup:job-positions', () =>
+          this.prisma.jobPosition.findMany({
             where: { deletedAt: null, status: 'ACTIVE' },
             select: { name: true, code: true },
           }),
@@ -772,6 +793,7 @@ export class EmployeeExcelService {
     const optsDept = ['Không có', ...depts.map(formatOpt)];
     const optsSection = ['Không có', ...sections.map(formatOpt)];
     const optsJobTitle = ['Không có', ...jobTitles.map(formatOpt)];
+    const optsJobPosition = ['Không có', ...jobPositions.map(formatOpt)];
 
     const maxRows = Math.max(
       optsCompany.length,
@@ -780,6 +802,7 @@ export class EmployeeExcelService {
       optsDept.length,
       optsSection.length,
       optsJobTitle.length,
+      optsJobPosition.length,
     );
 
     for (let i = 0; i < maxRows; i++) {
@@ -790,6 +813,7 @@ export class EmployeeExcelService {
         department: optsDept[i] || '',
         section: optsSection[i] || '',
         jobTitle: optsJobTitle[i] || '',
+        jobPosition: optsJobPosition[i] || '',
       });
     }
 
@@ -821,6 +845,7 @@ export class EmployeeExcelService {
     addDynamicDropdown('departmentCode', 'D', optsDept.length);
     addDynamicDropdown('sectionCode', 'E', optsSection.length);
     addDynamicDropdown('jobTitleCode', 'F', optsJobTitle.length);
+    addDynamicDropdown('jobPositionCode', 'G', optsJobPosition.length);
 
     res.setHeader(
       'Content-Type',
@@ -996,7 +1021,7 @@ export class EmployeeExcelService {
       { header: 'Khối', key: 'divisionCode' },
       { header: 'Phòng ban', key: 'departmentCode' },
       { header: 'Bộ phận', key: 'sectionCode' },
-      { header: 'Chức vụ', key: 'jobTitleCode' },
+      { header: 'Chức danh', key: 'jobTitleCode' },
       { header: 'Quản lý trực tiếp', key: 'managerCode' },
       { header: 'Trạng thái', key: 'employmentStatus' },
       { header: 'Ngày vào làm (DD/MM/YYYY)', key: 'joinedAt' },
@@ -1012,10 +1037,16 @@ export class EmployeeExcelService {
       { header: 'Người cập nhật', key: 'updatedBy' },
     ];
 
-    const importConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'employees', name: 'PJ - Import' },
+    let importConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'employees', name: { equals: "Import", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!importConfig) {
+      importConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'employees', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let expectedHeaders = defaultHeaders;
     if (importConfig && Array.isArray(importConfig.columns)) {
@@ -1065,7 +1096,7 @@ export class EmployeeExcelService {
 
       const exactValLower = val.toLowerCase();
 
-      // 1. Try exact match from PJ - Import config
+      // 1. Try exact match from Import config
       if (headerToKeyMap.has(exactValLower)) {
         colMap[headerToKeyMap.get(exactValLower)!] = colNumber;
         return;
@@ -1199,7 +1230,7 @@ export class EmployeeExcelService {
       else if (lowerVal.includes('nhà máy')) colMap['factoryCode'] = colNumber;
       else if (lowerVal.includes('khối')) colMap['divisionCode'] = colNumber;
       else if (lowerVal.includes('bộ phận')) colMap['sectionCode'] = colNumber;
-      else if (lowerVal.includes('mã chức vụ') || lowerVal.includes('chức vụ'))
+      else if (lowerVal.includes('chức danh') || lowerVal.includes('mã chức vụ') || lowerVal.includes('chức vụ'))
         colMap['jobTitleCode'] = colNumber;
       else if (lowerVal.includes('quản lý') || lowerVal.includes('mã quản lý'))
         colMap['managerCode'] = colNumber;
@@ -1589,7 +1620,7 @@ export class EmployeeExcelService {
                   addCellError(
                     actualRowIndex,
                     'jobTitleCode',
-                    `Chức vụ "${row.jobTitleCode}" không tồn tại hoặc đã bị xóa`,
+                    `Chức danh "${row.jobTitleCode}" không tồn tại hoặc đã bị xóa`,
                   );
                 }
               }

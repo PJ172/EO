@@ -33,6 +33,11 @@ export default function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/', request.url));
     }
 
+    // Redirect /dashboard to / (route group doesn't create URL segment)
+    if (pathname === '/dashboard') {
+        return NextResponse.redirect(new URL('/general/dashboard', request.url));
+    }
+
     return NextResponse.next();
 }
 

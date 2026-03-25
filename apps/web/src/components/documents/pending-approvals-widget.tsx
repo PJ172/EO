@@ -21,7 +21,7 @@ export function PendingApprovalsWidget() {
                 <CardTitle className="flex items-center justify-between">
                     <span>Tài liệu chờ duyệt ({pendingDocs.length})</span>
                     <Button variant="link" size="sm" asChild>
-                        <Link href="/documents">Xem tất cả <ArrowRight className="ml-1 h-4 w-4" /></Link>
+                        <Link href="/iso/documents">Xem tất cả <ArrowRight className="ml-1 h-4 w-4" /></Link>
                     </Button>
                 </CardTitle>
             </CardHeader>

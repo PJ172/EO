@@ -809,7 +809,7 @@ export function EmployeeForm({ initialData, isEdit = false }: EmployeeFormProps)
                                             value={watch("jobTitleId") || "none"} onValueChange={(val) => setValue("jobTitleId", val === "none" ? "" : val || "")} placeholder="Chọn chức danh" />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Vị trí / Chức vụ</Label>
+                                        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Vị trí / Chức danh</Label>
                                         <Combobox options={[{ value: "none", label: "-- Chọn --" }, ...(positions?.map(p => ({ value: p.id, label: p.name })) || [])]}
                                             value={watch("positionId" as any) || "none"} onValueChange={(val) => setValue("positionId" as any, val === "none" ? "" : val || "")} placeholder="Chọn vị trí" />
                                     </div>

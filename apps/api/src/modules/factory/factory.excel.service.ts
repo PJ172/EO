@@ -84,11 +84,17 @@ export class FactoryExcelService {
       );
     }
 
-    // Fetch export config if 'PJ - Export' config name exists
-    const exportConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'factories', name: 'PJ - Export' },
+    // Fetch export config: Export by name → fallback to ALL config
+    let exportConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'factories', name: { equals: "Export", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!exportConfig) {
+      exportConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'factories', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = columns;
     if (exportConfig && Array.isArray(exportConfig.columns)) {
@@ -189,11 +195,17 @@ export class FactoryExcelService {
       { header: 'Trạng thái (*)', key: 'status', width: 25 },
     ];
 
-    // Read PJ - Import config
-    const importConfig = await this.prisma.tableColumnConfig.findFirst({
-      where: { moduleKey: 'factories', name: 'PJ - Import' },
+    // Read Import config → fallback to ALL config
+    let importConfig = await this.prisma.tableColumnConfig.findFirst({
+      where: { moduleKey: 'factories', name: { equals: "Import", mode: "insensitive" } },
       orderBy: { updatedAt: 'desc' },
     });
+    if (!importConfig) {
+      importConfig = await this.prisma.tableColumnConfig.findFirst({
+        where: { moduleKey: 'factories', applyTo: 'ALL' },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
 
     let headers = defaultHeaders;
     if (importConfig && Array.isArray(importConfig.columns)) {

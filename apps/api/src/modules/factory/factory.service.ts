@@ -121,7 +121,7 @@ export class FactoryService {
               jobTitle: { select: { id: true, name: true } }
             } 
           },
-          _count: { select: { employees: true } },
+          _count: { select: { employees: { where: { deletedAt: null, employmentStatus: { not: 'RESIGNED' } } } } },
         },
         orderBy,
         skip,

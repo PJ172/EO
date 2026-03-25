@@ -217,13 +217,16 @@ export class OrganizationController {
   @Patch('position')
   @Audit(Action.UPDATE)
   @Permissions('DEPARTMENT_MANAGE')
-  @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ' })
+  @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ (theo chartKey)' })
   async updatePosition(@Body() body: Record<string, any>) {
-    return this.organizationService.saveNodePosition(
-      body['nodeId'],
-      Number(body['x']),
-      Number(body['y']),
-    );
+    const chartKey = body['chartKey'] as string | undefined;
+    const nodeId = body['nodeId'] as string;
+    const x = Number(body['x']);
+    const y = Number(body['y']);
+    if (chartKey) {
+      return this.organizationService.saveNodePositionByChart(chartKey, nodeId, x, y);
+    }
+    return this.organizationService.saveNodePosition(nodeId, x, y);
   }
 
   @Patch(':id')
@@ -252,12 +255,15 @@ export class OrganizationController {
   @Post('positions/bulk')
   @Audit(Action.UPDATE)
   @Permissions('DEPARTMENT_MANAGE')
-  @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ hàng loạt' })
+  @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ hàng loạt (theo chartKey)' })
   async updateBulkPositions(
-    @Body() body: { positions: { nodeId: string; x: number; y: number }[] },
+    @Body() body: { chartKey?: string; positions: { nodeId: string; x: number; y: number }[] },
   ) {
     if (!body.positions || !Array.isArray(body.positions)) {
       return { success: false, message: 'Invalid payload' };
+    }
+    if (body.chartKey) {
+      return this.organizationService.saveBulkNodePositionsByChart(body.chartKey, body.positions);
     }
     return this.organizationService.saveBulkNodePositions(body.positions);
   }

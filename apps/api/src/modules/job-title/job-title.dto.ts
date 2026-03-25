@@ -13,9 +13,9 @@ export class CreateJobTitleDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @MaxLength(7, { message: 'Mã chức vụ phải đúng 7 ký tự (VD: CV00001)' })
+  @MaxLength(7, { message: 'Mã chức danh phải đúng 7 ký tự (VD: CV00001)' })
   @Matches(/^CV\\d{5}$/, {
-    message: 'Mã chức vụ phải gồm tiền tố CV và đúng 5 chữ số',
+    message: 'Mã chức danh phải gồm tiền tố CV và đúng 5 chữ số',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.toUpperCase().trim() : value,
