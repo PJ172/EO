@@ -669,8 +669,8 @@ export function UserForm({ userId, returnUrl = '/settings/users' }: UserFormProp
     // Mutations
     const createMutation = useMutation({
         mutationFn: (data: any) => apiPost('/users', data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
+        onSuccess: async () => {
+            await queryClient.refetchQueries({ queryKey: ['users'] });
             toast.success('Tạo người dùng thành công!');
             router.push(returnUrl);
         },
@@ -678,8 +678,8 @@ export function UserForm({ userId, returnUrl = '/settings/users' }: UserFormProp
     });
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: { id: string; data: any }) => apiPatch(`/users/${id}`, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
+        onSuccess: async () => {
+            await queryClient.refetchQueries({ queryKey: ['users'] });
             toast.success('Cập nhật thành công!');
             router.push(returnUrl);
         },

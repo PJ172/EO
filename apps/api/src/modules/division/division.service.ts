@@ -25,6 +25,9 @@ export interface CreateDivisionDto {
   note?: string;
   managerEmployeeId?: string;
   status?: 'ACTIVE' | 'INACTIVE';
+  showOnOrgChart?: boolean;
+  useManagerDisplayTitle?: boolean;
+  managerDisplayTitle?: string | null;
 }
 
 export type UpdateDivisionDto = Partial<CreateDivisionDto>;

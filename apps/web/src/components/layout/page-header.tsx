@@ -24,10 +24,8 @@ export function PageHeader({
     className
 }: PageHeaderProps) {
     return (
-        <div className={cn("relative rounded-3xl overflow-hidden bg-card/60 backdrop-blur-2xl border border-white/20 dark:border-white/5 shadow-2xl shadow-indigo-500/5 transition-all hover:shadow-indigo-500/10 mb-6 group/header", className)}>
-            {/* Gradient Backgrounds */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 via-violet-500/10 to-transparent pointer-events-none" />
-            <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-bl from-amber-200/20 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className={cn("relative rounded-2xl overflow-hidden bg-card/60 backdrop-blur-xl border border-white/20 dark:border-white/5 shadow-lg mb-2 group/header", className)}>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/8 via-blue-400/5 to-transparent pointer-events-none" />
 
             <div className="relative p-3 md:px-4 md:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -60,7 +58,7 @@ export function PageHeader({
 
                     {/* Text block */}
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-600 to-indigo-600 dark:from-violet-400 dark:to-cyan-400 bg-clip-text text-transparent drop-shadow-sm">
+                        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
                             {title}
                         </h2>
                         {description && (

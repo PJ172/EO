@@ -16,6 +16,7 @@ import { ImportDepartmentDialog } from "@/components/departments/import-departme
 
 const getColumns = (
     onToggle: (id: string, checked: boolean) => void,
+    onDisplayTitleToggle: (id: string, checked: boolean) => void,
     onStatusToggle: (id: string, currentStatus: string) => void,
     isUpdatingStatus: string | null
 ): OrgColumnDef<Section>[] => [
@@ -69,6 +70,37 @@ const getColumns = (
                 <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-medium border border-border min-w-[2rem]">
                     0
                 </span>
+            )
+        ),
+    },
+    {
+        key: "useManagerDisplayTitle",
+        label: "C. danh Tùy chỉnh",
+        sortable: false,
+        className: "w-[120px] text-center",
+        render: (item) => (
+            <div className="flex justify-center" onClick={(e) => e.stopPropagation()}>
+                <Switch
+                    checked={!!(item as any).useManagerDisplayTitle}
+                    className="data-[state=checked]:bg-orange-500 scale-90"
+                    onCheckedChange={(checked) => onDisplayTitleToggle(item.id, checked)}
+                />
+            </div>
+        ),
+    },
+    {
+        key: "managerDisplayTitle",
+        label: "Chức danh Sơ đồ",
+        sortable: false,
+        className: "w-[180px]",
+        render: (item) => (
+            (item as any).useManagerDisplayTitle && (item as any).managerDisplayTitle ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-400 text-xs font-medium">
+                    <span className="h-1.5 w-1.5 rounded-full bg-orange-500 flex-shrink-0" />
+                    {(item as any).managerDisplayTitle}
+                </span>
+            ) : (
+                <span className="text-muted-foreground/40 text-xs italic">—</span>
             )
         ),
     },
@@ -139,6 +171,7 @@ export default function SectionListPage() {
     const bulkUpdateOrgChart = useBulkUpdateOrgChart();
     const columns = useMemo(() => getColumns(
         async (id, checked) => { await updateSection.mutateAsync({ id, showOnOrgChart: checked }); refetch(); },
+        async (id, checked) => { await updateSection.mutateAsync({ id, useManagerDisplayTitle: checked }); refetch(); },
         handleStatusToggle,
         updatingStatusId
     ), [updateSection, handleStatusToggle, updatingStatusId, refetch]);

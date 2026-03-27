@@ -44,6 +44,8 @@ export interface Department {
         email?: string;
     };
     note?: string;
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export interface CreateDepartmentInput {
@@ -54,6 +56,8 @@ export interface CreateDepartmentInput {
     managerEmployeeId?: string | null;
     status?: "ACTIVE" | "INACTIVE";
     showOnOrgChart?: boolean;
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export interface UpdateDepartmentInput extends Partial<CreateDepartmentInput> { }

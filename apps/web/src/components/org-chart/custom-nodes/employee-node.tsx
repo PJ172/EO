@@ -215,17 +215,17 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                     {data.employeeCode}
                 </div>
                 <h3
-                    className="font-extrabold text-base leading-tight tracking-tight line-clamp-2 w-full text-center"
+                    className="font-extrabold text-base leading-normal tracking-tight line-clamp-2 w-full text-center"
                     style={{ color: data.customText ? textColor : 'rgb(30 41 59)' }}
                 >
                     {data.fullName}
                 </h3>
                 <div className="flex flex-col items-center w-full gap-1 mt-0.5">
-                    <div className={cn("px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider shadow-sm max-w-full truncate", style.badge)}>
+                    <div className={cn("px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider leading-relaxed shadow-sm max-w-full truncate", style.badge)}>
                         {data.jobTitle || 'Nhân viên'}
                     </div>
                     {data.jobPosition && (
-                        <div className="px-2 py-0.5 rounded-md text-[8.5px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 max-w-[95%] truncate">
+                        <div className="px-2 py-0.5 rounded-md text-[8.5px] font-bold uppercase tracking-wide leading-relaxed text-slate-500 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 max-w-[95%] truncate">
                             {data.jobPosition}
                         </div>
                     )}

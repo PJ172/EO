@@ -200,6 +200,11 @@ export class CreateEmployeeDto {
   @IsString()
   jobTitleId?: string;
 
+  @ApiProperty({ required: false, description: 'Vị trí / Chức danh (Job Position ID)' })
+  @IsOptional()
+  @IsString()
+  positionId?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()

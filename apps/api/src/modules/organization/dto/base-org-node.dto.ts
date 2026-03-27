@@ -67,4 +67,20 @@ export class BaseOrgNodeDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
   excludeFromFilters?: boolean;
+
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Bật chức danh tùy chỉnh trên sơ đồ tổ chức',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  useManagerDisplayTitle?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Chức danh hiển thị trên sơ đồ (khi useManagerDisplayTitle = true)',
+  })
+  @IsOptional()
+  @IsString()
+  managerDisplayTitle?: string;
 }

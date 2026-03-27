@@ -49,6 +49,8 @@ import {
     Headphones,
     GitMerge,
     Trash2,
+    CarFront,
+    Ticket,
 } from "lucide-react";
 
 type MenuItem = {
@@ -133,7 +135,7 @@ const menuItems: MenuGroup[] = [
             {
                 title: "Đặt xe",
                 url: "/ga/cars",
-                icon: Briefcase,
+                icon: CarFront,
                 permissions: ["CAR_READ"],
                 code: "CARS"
             },
@@ -157,12 +159,12 @@ const menuItems: MenuGroup[] = [
             {
                 title: "IT Ticket",
                 url: "/cntt/it-ticket",
-                icon: Headphones,
+                icon: Ticket,
                 permissions: ["TICKET_VIEW"],
                 code: "TICKETS"
             },
             {
-                title: "Thiết bị IT",
+                title: "Thiết bị CNTT",
                 url: "/cntt/it-assets",
                 icon: Monitor,
                 permissions: ["ASSET_VIEW"],

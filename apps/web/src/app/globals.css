@@ -182,6 +182,18 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  /* Vietnamese diacritical marks fix — ensure all form controls have enough
+     line-height so stacked diacritics (e.g. Ổ, ổ, ồ, Ấ, Ầ) are never clipped */
+  input,
+  textarea,
+  select,
+  [role="combobox"],
+  [data-slot="select-trigger"],
+  [data-slot="input"] {
+    line-height: 1.5 !important;
+    overflow: visible;
+  }
+
   /* Custom scrollbar - Thicker and more visible */
   ::-webkit-scrollbar {
     width: 8px;

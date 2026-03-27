@@ -52,6 +52,8 @@ import { ImportHistoryModule } from './modules/import-history/import-history.mod
 import { UIConfigModule } from './modules/ui-config/ui-config.module';
 import { AIModule } from './modules/ai/ai.module';
 import { PositionModule } from './modules/position/position.module';
+import { CategoryModule } from './modules/category/category.module';
+import { LocationModule } from './modules/location/location.module';
 
 // Middleware
 import { HttpLoggerMiddleware } from './common/middleware';
@@ -101,6 +103,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     UIConfigModule,
     AIModule,
     PositionModule,
+    CategoryModule,
+    LocationModule,
 
     // Serve Static Files (Uploads)
     ServeStaticModule.forRoot({

@@ -373,24 +373,12 @@ export class EmployeeQueryService {
     const edges: any[] = [];
 
     const buildNodeData = (item: any, type: string) => {
-      let jobTitle = item.manager?.jobTitle?.name || null;
-
-      // Hardcode job titles for specific Divisions (Khối) as requested
-      if (type === 'DIVISION' && item.manager) {
-        const nameLower = item.name.toLowerCase();
-        if (nameLower.includes('sản xuất')) {
-          jobTitle = 'GIÁM ĐỐC KHỐI SẢN XUẤT';
-        } else if (nameLower.includes('chất lượng')) {
-          jobTitle = 'GIÁM ĐỐC KHỐI CHẤT LƯỢNG';
-        } else if (nameLower.includes('kinh doanh')) {
-          jobTitle = 'GIÁM ĐỐC KHỐI KINH DOANH';
-        } else if (nameLower.includes('tài chính')) {
-          jobTitle = 'GIÁM ĐỐC KHỐI TÀI CHÍNH';
-        } else if (nameLower.includes('vận hành')) {
-          jobTitle = 'GIÁM ĐỐC KHỐI VẬN HÀNH';
-        } else {
-          jobTitle = `GIÁM ĐỐC ${item.name.toUpperCase()}`;
-        }
+      // Cascade priority: unit-level custom title > employee jobTitle
+      let jobTitle: string | null;
+      if (item.useManagerDisplayTitle && item.managerDisplayTitle) {
+        jobTitle = item.managerDisplayTitle;
+      } else {
+        jobTitle = item.manager?.jobTitle?.name || null;
       }
 
       return {

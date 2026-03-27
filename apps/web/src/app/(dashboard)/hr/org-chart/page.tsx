@@ -246,10 +246,10 @@ export default function OrgChartPage() {
             const res = await apiClient.get('/employees/org-chart/structure');
             return res.data;
         },
-        staleTime: Infinity,
-        gcTime: Infinity,
+        staleTime: 30000, // 30 giây - tự refresh khi quay lại tab
+        gcTime: 60000,
         refetchInterval: false,
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
         refetchOnReconnect: false,
         placeholderData: (prev) => prev,
     });

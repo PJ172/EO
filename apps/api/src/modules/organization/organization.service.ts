@@ -87,7 +87,11 @@ export class OrganizationService {
         ? {
             fullName: dept.manager.fullName,
             employeeCode: dept.manager.employeeCode,
-            jobTitle: dept.manager.jobTitle?.name,
+            // Cascade: unit-level title > employee jobTitle
+            jobTitle:
+              dept.useManagerDisplayTitle && dept.managerDisplayTitle
+                ? dept.managerDisplayTitle
+                : dept.manager.jobTitle?.name,
           }
         : null,
       employeeCount: dept._count.employees,

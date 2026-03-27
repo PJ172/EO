@@ -18,12 +18,15 @@ export interface RoomBooking {
     roomId: string;
     organizerEmployeeId: string;
     title: string;
-    description?: string; // Nội dung
-    note?: string; // Ghi chú
+    description?: string;
+    note?: string;
     isPrivate?: boolean;
     startDatetime: string;
     endDatetime: string;
     status: string;
+    recurringGroupId?: string;
+    recurringRule?: string;
+    recurringEndDate?: string;
     room?: MeetingRoom;
     organizer?: {
         firstName: string;
@@ -62,6 +65,6 @@ export const updateBooking = async (id: string, data: any): Promise<RoomBooking>
     return apiPatch<RoomBooking>(`/bookings/${id}`, data);
 };
 
-export const deleteBooking = async (id: string): Promise<void> => {
-    return apiDelete(`/bookings/${id}`);
+export const deleteBooking = async (id: string, deleteAll?: boolean): Promise<void> => {
+    return apiDelete(`/bookings/${id}${deleteAll ? '?deleteAll=true' : ''}`);
 };

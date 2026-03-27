@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, RoomBooking, MeetingRoom } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class BookingService {
@@ -101,6 +102,9 @@ export class BookingService {
       note?: string;
       isPrivate?: boolean;
       attendeeIds?: string[];
+      isRecurring?: boolean;
+      recurringRule?: string;
+      recurringEndDate?: string;
     },
   ) {
     const start = new Date(data.startTime);
@@ -112,7 +116,6 @@ export class BookingService {
       );
     }
 
-    // Resolve Employee ID from User ID
     const employee = await this.prisma.employee.findUnique({
       where: { userId },
     });
@@ -123,18 +126,104 @@ export class BookingService {
       );
     }
 
-    // Conflict Check
+    // === Recurring Booking ===
+    if (data.isRecurring && data.recurringRule && data.recurringEndDate) {
+      const recurringGroupId = randomUUID();
+      const recurringEnd = new Date(data.recurringEndDate);
+      const durationMs = end.getTime() - start.getTime();
+      const dates: { start: Date; end: Date }[] = [];
+      let current = new Date(start);
+      const MAX_INSTANCES = 52;
+
+      while (current <= recurringEnd && dates.length < MAX_INSTANCES) {
+        dates.push({
+          start: new Date(current),
+          end: new Date(current.getTime() + durationMs),
+        });
+        switch (data.recurringRule) {
+          case 'DAILY':
+            current.setDate(current.getDate() + 1);
+            break;
+          case 'WEEKLY':
+            current.setDate(current.getDate() + 7);
+            break;
+          case 'MONTHLY':
+            current.setMonth(current.getMonth() + 1);
+            break;
+          default:
+            current = new Date(recurringEnd.getTime() + 1);
+        }
+      }
+
+      // [C1] Batch conflict check — 1 query thay vì N queries tuần tự
+      const conflictingBookings = await this.prisma.roomBooking.findMany({
+        where: {
+          roomId: data.roomId,
+          status: 'CONFIRMED',
+          OR: dates.map((slot) => ({
+            startDatetime: { lt: slot.end },
+            endDatetime: { gt: slot.start },
+          })),
+        },
+        select: { startDatetime: true, endDatetime: true },
+      });
+
+      const validSlots: { start: Date; end: Date }[] = [];
+      const skipped: string[] = [];
+
+      for (const slot of dates) {
+        const hasConflict = conflictingBookings.some(
+          (c) => c.startDatetime < slot.end && c.endDatetime > slot.start,
+        );
+        if (hasConflict) {
+          skipped.push(slot.start.toISOString());
+        } else {
+          validSlots.push(slot);
+        }
+      }
+
+      // [C1] createMany — 1 INSERT thay vì N INSERTs tuần tự
+      if (validSlots.length > 0) {
+        await this.prisma.roomBooking.createMany({
+          data: validSlots.map((slot) => ({
+            roomId: data.roomId,
+            organizerEmployeeId: employee.id,
+            startDatetime: slot.start,
+            endDatetime: slot.end,
+            title: data.purpose,
+            description: data.description,
+            note: data.note,
+            isPrivate: data.isPrivate || false,
+            status: 'CONFIRMED',
+            recurringGroupId,
+            recurringRule: data.recurringRule,
+            recurringEndDate: recurringEnd,
+          })),
+        });
+
+        // Attach attendees if provided (createMany doesn't support nested)
+        if (data.attendeeIds && data.attendeeIds.length > 0) {
+          const inserted = await this.prisma.roomBooking.findMany({
+            where: { recurringGroupId },
+            select: { id: true },
+          });
+          await this.prisma.bookingAttendee.createMany({
+            data: inserted.flatMap((b) =>
+              data.attendeeIds!.map((empId) => ({ bookingId: b.id, employeeId: empId })),
+            ),
+          });
+        }
+      }
+
+      return { created: validSlots.length, skipped: skipped.length, recurringGroupId };
+    }
+
+    // === Single Booking ===
     const conflict = await this.prisma.roomBooking.findFirst({
       where: {
         roomId: data.roomId,
         status: 'CONFIRMED',
-        id: { not: undefined }, // Only exclude self if updating, but here is create
-        OR: [
-          {
-            startDatetime: { lt: end },
-            endDatetime: { gt: start },
-          },
-        ],
+        OR: [{ startDatetime: { lt: end }, endDatetime: { gt: start } }],
       },
     });
 
@@ -147,7 +236,7 @@ export class BookingService {
     return this.prisma.roomBooking.create({
       data: {
         roomId: data.roomId,
-        organizerEmployeeId: employee.id, // Use resolved Employee ID
+        organizerEmployeeId: employee.id,
         startDatetime: start,
         endDatetime: end,
         title: data.purpose,
@@ -180,30 +269,46 @@ export class BookingService {
       if (to) where.startDatetime.lte = new Date(to);
     }
 
-    const bookings = await this.prisma.roomBooking.findMany({
-      where,
-      include: {
-        room: true,
-        organizer: true,
-        attendees: {
-          include: {
-            employee: true,
+    // [C2] Parallel: fetch bookings + resolve employee concurrently
+    const [bookings, currentEmployee] = await Promise.all([
+      this.prisma.roomBooking.findMany({
+        where,
+        select: {
+          id: true,
+          roomId: true,
+          organizerEmployeeId: true,
+          title: true,
+          description: true,
+          note: true,
+          isPrivate: true,
+          startDatetime: true,
+          endDatetime: true,
+          status: true,
+          recurringGroupId: true,
+          recurringRule: true,
+          recurringEndDate: true,
+          room: {
+            select: { id: true, name: true, code: true, capacity: true, location: true, color: true, equipmentsJson: true },
+          },
+          organizer: {
+            select: { id: true, fullName: true, employeeCode: true },
+          },
+          attendees: {
+            select: {
+              employeeId: true,
+              employee: { select: { id: true, fullName: true } },
+            },
           },
         },
-      },
-      orderBy: { startDatetime: 'asc' },
-    });
+        orderBy: { startDatetime: 'asc' },
+      }),
+      // Only fetch if not already in auth context
+      user.employee
+        ? Promise.resolve(user.employee as { id: string })
+        : this.prisma.employee.findUnique({ where: { userId: user.id }, select: { id: true } }),
+    ]);
 
-    // Resolve current employee
-    let currentEmployeeId: string | undefined;
-    if (user.employee) {
-      currentEmployeeId = user.employee.id;
-    } else {
-      const employee = await this.prisma.employee.findUnique({
-        where: { userId: user.id },
-      });
-      currentEmployeeId = employee?.id;
-    }
+    const currentEmployeeId = currentEmployee?.id;
 
     // Check for Admin/Manager permission (ROOM_MANAGE)
     const hasManagePerm = user.roles?.some(
@@ -214,7 +319,6 @@ export class BookingService {
     // Map and Redact
     return bookings.map((booking) => {
       if (booking.isPrivate) {
-        // If Admin/Manager, they can see everything
         if (hasManagePerm) return booking;
 
         const isOrganizer = booking.organizerEmployeeId === currentEmployeeId;
@@ -222,44 +326,41 @@ export class BookingService {
           (att) => att.employeeId === currentEmployeeId,
         );
 
-        if (isOrganizer || isAttendee) {
-          return booking; // Reveal full info
-        }
+        if (isOrganizer || isAttendee) return booking;
 
-        // Redact info for others
+        // Redact for non-participants
         return {
           ...booking,
-          title: 'Lịch riêng tư', // Hide title
+          title: 'Lịch riêng tư',
           description: '',
           note: '',
-          attendees: [], // Hide attendees
-          // organizer: Keep visible
-          status: 'CONFIRMED', // Ensure status is valid string or enum
+          attendees: [],
+          status: 'CONFIRMED',
         };
       }
       return booking;
     });
   }
   async updateBooking(id: string, data: any, userId: string) {
-    const booking = await this.prisma.roomBooking.findUnique({ where: { id } });
-    if (!booking) throw new NotFoundException('Không tìm thấy lịch đặt');
-
-    const employee = await this.prisma.employee.findUnique({
-      where: { userId },
-    });
-    if (!employee) throw new BadRequestException('Lỗi xác thực nhân viên');
-
-    if (booking.organizerEmployeeId !== employee.id) {
-      const user = await this.prisma.user.findUnique({
+    // [C3] Parallel: fetch booking + user (with employee + roles) in one round-trip
+    const [booking, user] = await Promise.all([
+      this.prisma.roomBooking.findUnique({ where: { id } }),
+      this.prisma.user.findUnique({
         where: { id: userId },
-        include: { roles: true },
-      });
-      const isAdmin = user?.roles.some(
-        (r: any) => r.code === 'ADMIN' || r.perms?.includes('ROOM_MANAGE'),
-      );
-      if (!isAdmin)
-        throw new BadRequestException('Bạn không có quyền chỉnh sửa lịch này');
-    }
+        include: { employee: true, roles: true },
+      }),
+    ]);
+
+    if (!booking) throw new NotFoundException('Không tìm thấy lịch đặt');
+    if (!user?.employee) throw new BadRequestException('Lỗi xác thực nhân viên');
+
+    const isOrganizer = booking.organizerEmployeeId === user.employee.id;
+    const isAdmin = user.roles.some(
+      (r: any) => r.code === 'ADMIN' || r.perms?.includes('ROOM_MANAGE'),
+    );
+
+    if (!isOrganizer && !isAdmin)
+      throw new BadRequestException('Bạn không có quyền chỉnh sửa lịch này');
 
     const {
       roomId,
@@ -294,9 +395,7 @@ export class BookingService {
         },
       });
       if (conflict)
-        throw new BadRequestException(
-          'Phòng đã có người đặt trong khung giờ này',
-        );
+        throw new BadRequestException('Phòng đã có người đặt trong khung giờ này');
     }
 
     if (attendeeIds) {
@@ -312,25 +411,31 @@ export class BookingService {
     });
   }
 
-  async deleteBooking(id: string, userId: string) {
-    const booking = await this.prisma.roomBooking.findUnique({ where: { id } });
-    if (!booking) throw new NotFoundException('Không tìm thấy lịch đặt');
-
-    const employee = await this.prisma.employee.findUnique({
-      where: { userId },
-    });
-    if (!employee) throw new BadRequestException('Lỗi xác thực nhân viên');
-
-    if (booking.organizerEmployeeId !== employee.id) {
-      const user = await this.prisma.user.findUnique({
+  async deleteBooking(id: string, userId: string, deleteAll?: boolean) {
+    // [C3] Parallel: fetch booking + user (with employee + roles)
+    const [booking, user] = await Promise.all([
+      this.prisma.roomBooking.findUnique({ where: { id } }),
+      this.prisma.user.findUnique({
         where: { id: userId },
-        include: { roles: true },
+        include: { employee: true, roles: true },
+      }),
+    ]);
+
+    if (!booking) throw new NotFoundException('Không tìm thấy lịch đặt');
+    if (!user?.employee) throw new BadRequestException('Lỗi xác thực nhân viên');
+
+    const isOrganizer = booking.organizerEmployeeId === user.employee.id;
+    const isAdmin = user.roles.some(
+      (r: any) => r.code === 'ADMIN' || r.perms?.includes('ROOM_MANAGE'),
+    );
+
+    if (!isOrganizer && !isAdmin)
+      throw new BadRequestException('Bạn không có quyền hủy lịch này');
+
+    if (deleteAll && booking.recurringGroupId) {
+      return this.prisma.roomBooking.deleteMany({
+        where: { recurringGroupId: booking.recurringGroupId },
       });
-      const isAdmin = user?.roles.some(
-        (r: any) => r.code === 'ADMIN' || r.perms?.includes('ROOM_MANAGE'),
-      );
-      if (!isAdmin)
-        throw new BadRequestException('Bạn không có quyền hủy lịch này');
     }
 
     return this.prisma.roomBooking.delete({ where: { id } });

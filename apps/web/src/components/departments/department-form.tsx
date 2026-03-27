@@ -49,6 +49,8 @@ const formSchema = z.object({
     managerEmployeeId: z.string().optional().nullable(),
     status: z.enum(["ACTIVE", "INACTIVE"]),
     showOnOrgChart: z.boolean(),
+    useManagerDisplayTitle: z.boolean().default(false),
+    managerDisplayTitle: z.string().optional(),
 });
 
 type DepartmentFormData = z.infer<typeof formSchema>;
@@ -127,6 +129,8 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
             managerEmployeeId: undefined,
             status: "ACTIVE",
             showOnOrgChart: false,
+            useManagerDisplayTitle: false,
+            managerDisplayTitle: "",
         },
     });
 
@@ -150,6 +154,8 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
                 managerEmployeeId: department.managerEmployeeId || undefined,
                 status: department.status,
                 showOnOrgChart: department.showOnOrgChart ?? false,
+                useManagerDisplayTitle: (department as any).useManagerDisplayTitle ?? false,
+                managerDisplayTitle: (department as any).managerDisplayTitle || "",
             });
         }
     }, [department, effectiveParentId, form]);
@@ -169,7 +175,10 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
             if (isEditMode && (departmentId || department?.id)) {
                 await updateDepartment.mutateAsync({ id: (departmentId || department?.id) as string, ...payload });
                 toast.success("Cập nhật thành công");
-                if (variant === "drawer") onSuccess?.();
+                if (variant === "drawer") {
+                    onSuccess?.();
+                    onOpenChange?.(false);
+                }
             } else {
                 await createDepartment.mutateAsync(payload);
                 toast.success("Tạo mới thành công");
@@ -406,6 +415,48 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
                                         </FormItem>
                                     )}
                                 />
+
+                                <FormField
+                                    control={form.control}
+                                    name="useManagerDisplayTitle"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-white dark:bg-slate-950">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="text-base font-semibold text-slate-800 dark:text-slate-200">Chức danh tùy chỉnh trên Sơ đồ</FormLabel>
+                                                <div className="text-[0.8rem] text-muted-foreground font-medium">
+                                                    Bật để hiển thị chức danh riêng thay vì chức danh nhân viên trên Sơ đồ tổ chức.
+                                                </div>
+                                            </div>
+                                            <FormControl>
+                                                <Switch
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                    className="data-[state=checked]:bg-orange-500"
+                                                />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {form.watch("useManagerDisplayTitle") && (
+                                    <FormField
+                                        control={form.control}
+                                        name="managerDisplayTitle"
+                                        render={({ field }) => (
+                                            <FormItem className="md:col-span-2">
+                                                <FormLabel>Chức danh hiển thị trên Sơ đồ <span className="text-orange-500">*</span></FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        placeholder="VD: Trưởng ban ISO, Phó Giám đốc phụ trách..."
+                                                        {...field}
+                                                        className="focus:ring-orange-500 border-orange-200"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                             </div>
     );
 

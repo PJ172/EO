@@ -65,6 +65,10 @@ model User {
   deletedUsers            User[]                   @relation("UserDeleter")
   updatedBy               User?                    @relation("UserUpdater", fields: [updatedById], references: [id])
   updatedUsers            User[]                   @relation("UserUpdater")
+  categoriesCreated       Category[]               @relation("CategoryCreatedBy")
+  categoriesUpdated       Category[]               @relation("CategoryUpdatedBy")
+  locationsCreated        Location[]               @relation("LocationCreatedBy")
+  locationsUpdated        Location[]               @relation("LocationUpdatedBy")
 
   @@index([deletedAt])
   @@index([deletedBatchId])
@@ -284,9 +288,11 @@ model Department {
   divisionId         String?              @map("division_id")
   companyId          String?              @map("company_id")
   excludeFromFilters Boolean              @default(false) @map("exclude_from_filters")
-  showOnOrgChart     Boolean              @default(false) @map("show_on_org_chart")
-  uiPositionX        Float?               @map("ui_position_x")
-  uiPositionY        Float?               @map("ui_position_y")
+  showOnOrgChart            Boolean              @default(false) @map("show_on_org_chart")
+  useManagerDisplayTitle    Boolean              @default(false) @map("use_manager_display_title")
+  managerDisplayTitle       String?              @map("manager_display_title")
+  uiPositionX               Float?               @map("ui_position_x")
+  uiPositionY               Float?               @map("ui_position_y")
   company            Company?             @relation(fields: [companyId], references: [id])
   createdBy          User?                @relation("DepartmentCreator", fields: [createdById], references: [id])
   deletedBy          User?                @relation("DepartmentDeleter", fields: [deletedById], references: [id])
@@ -357,9 +363,11 @@ model Division {
   updatedById        String?          @map("updated_by_id")
   companyId          String?          @map("company_id")
   excludeFromFilters Boolean          @default(false) @map("exclude_from_filters")
-  showOnOrgChart     Boolean          @default(false) @map("show_on_org_chart")
-  uiPositionX        Float?           @map("ui_position_x")
-  uiPositionY        Float?           @map("ui_position_y")
+  showOnOrgChart            Boolean          @default(false) @map("show_on_org_chart")
+  useManagerDisplayTitle    Boolean          @default(false) @map("use_manager_display_title")
+  managerDisplayTitle       String?          @map("manager_display_title")
+  uiPositionX               Float?           @map("ui_position_x")
+  uiPositionY               Float?           @map("ui_position_y")
   departments        Department[]
   company            Company?         @relation(fields: [companyId], references: [id])
   createdBy          User?            @relation("DivisionCreatedBy", fields: [createdById], references: [id])
@@ -392,9 +400,11 @@ model Section {
   updatedById        String?          @map("updated_by_id")
   companyId          String?          @map("company_id")
   excludeFromFilters Boolean          @default(false) @map("exclude_from_filters")
-  showOnOrgChart     Boolean          @default(false) @map("show_on_org_chart")
-  uiPositionX        Float?           @map("ui_position_x")
-  uiPositionY        Float?           @map("ui_position_y")
+  showOnOrgChart            Boolean          @default(false) @map("show_on_org_chart")
+  useManagerDisplayTitle    Boolean          @default(false) @map("use_manager_display_title")
+  managerDisplayTitle       String?          @map("manager_display_title")
+  uiPositionX               Float?           @map("ui_position_x")
+  uiPositionY               Float?           @map("ui_position_y")
   employees          Employee[]       @relation("EmployeeSection")
   company            Company?         @relation(fields: [companyId], references: [id])
   createdBy          User?            @relation("SectionCreatedBy", fields: [createdById], references: [id])
@@ -843,6 +853,9 @@ model RoomBooking {
   startDatetime       DateTime          @map("start_datetime")
   endDatetime         DateTime          @map("end_datetime")
   status              BookingStatus     @default(CONFIRMED)
+  recurringGroupId    String?           @map("recurring_group_id")
+  recurringRule       String?           @map("recurring_rule")
+  recurringEndDate    DateTime?         @map("recurring_end_date")
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")
   attendees           BookingAttendee[]
@@ -852,6 +865,7 @@ model RoomBooking {
   @@index([roomId, startDatetime, endDatetime])
   @@index([organizerEmployeeId])
   @@index([status])
+  @@index([recurringGroupId])
   @@map("room_bookings")
 }
 
@@ -1974,4 +1988,51 @@ enum TicketApprovalStatus {
 enum TicketWorkflowType {
   SIMPLE
   FULL
+}
+
+// ==========================================
+// CNTT — Danh Mục & Vị Trí
+// ==========================================
+
+model Category {
+  id          String   @id @default(uuid())
+  code        String   @unique              // DM00001..DM99999 (auto-generated)
+  name        String
+  type        String?                       // Loại danh mục (free text)
+  status      String   @default("ACTIVE")  // ACTIVE | INACTIVE
+  description String?                       // Miêu tả
+  note        String?                       // Ghi chú
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now())      @map("created_at")
+  updatedById String?  @map("updated_by_id")
+  updatedAt   DateTime @updatedAt           @map("updated_at")
+
+  createdBy   User?    @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([status])
+  @@index([type])
+  @@map("categories")
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  code        String   @unique              // prefix(2) + seq(5): NM00001, TD00001...
+  prefix      String   @db.VarChar(2)       // 2-char prefix: NM, TD, DL, VP...
+  name        String                        // Tên vị trí
+  detail      String?                       // Chi tiết vị trí
+  status      String   @default("ACTIVE")  // ACTIVE | INACTIVE
+  description String?                       // Diễn giải
+  note        String?                       // Ghi chú
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now())      @map("created_at")
+  updatedById String?  @map("updated_by_id")
+  updatedAt   DateTime @updatedAt           @map("updated_at")
+
+  createdBy   User?    @relation("LocationCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("LocationUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([status])
+  @@index([prefix])
+  @@map("locations")
 }

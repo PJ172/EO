@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import {
     UserCog, Shield, Activity, Settings,
     Building2, Factory, Briefcase, GitMerge,
-    Search, ArrowRight, Layers, Monitor, Trash2
+    Search, ArrowRight, Layers, Monitor, Trash2,
+    FolderOpen, MapPin,
 } from "lucide-react";
 import { MODULE_IDENTITIES } from "@/config/module-identities";
 import { PageHeader } from "@/components/ui/page-header";
@@ -37,6 +38,13 @@ const settingGroups: SettingGroup[] = [
             { title: "BỘ PHẬN", description: "Bộ phận trong cấu trúc", href: "/settings/sections", icon: MODULE_IDENTITIES.SECTION.icon, color: MODULE_IDENTITIES.SECTION.color, bgColor: MODULE_IDENTITIES.SECTION.bgColor },
             { title: "CHỨC DANH", description: "Chức danh, vị trí", href: "/settings/job-titles", icon: MODULE_IDENTITIES.JOB_TITLE.icon, color: MODULE_IDENTITIES.JOB_TITLE.color, bgColor: MODULE_IDENTITIES.JOB_TITLE.bgColor },
             { title: "VỊ TRÍ CÔNG VIỆC", description: "Vị trí tổ chức, phân công ca", href: "/settings/job-positions", icon: Layers, color: "text-cyan-600 dark:text-cyan-400", bgColor: "bg-cyan-500/10" },
+        ]
+    },
+    {
+        title: "CNTT",
+        items: [
+            { title: "DANH MỤC CNTT", description: "Quản lý danh mục thiết bị CNTT", href: "/settings/categories", icon: FolderOpen, color: "text-teal-600 dark:text-teal-400", bgColor: "bg-teal-500/10" },
+            { title: "VỊ TRÍ CNTT", description: "Quản lý vị trí lắp đặt thiết bị", href: "/settings/locations", icon: MapPin, color: "text-violet-600 dark:text-violet-400", bgColor: "bg-violet-500/10" },
         ]
     },
     {

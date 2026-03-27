@@ -126,4 +126,16 @@ export class CreateBookingDto {
 
   @IsOptional()
   attendeeIds?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isRecurring?: boolean;
+
+  @IsOptional()
+  @IsString()
+  recurringRule?: string; // 'DAILY' | 'WEEKLY' | 'MONTHLY'
+
+  @IsOptional()
+  @IsString()
+  recurringEndDate?: string; // ISO date string
 }

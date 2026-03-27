@@ -65,11 +65,11 @@ const getColumns = (
                     </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-none">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-snug">
                         {item.manager?.fullName || <span className="text-muted-foreground/50 font-normal italic">Chưa cập nhật</span>}
                     </span>
                     {item.manager?.fullName && (
-                        <span className="text-[10px] text-muted-foreground mt-1">
+                        <span className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
                             {(item.manager as any).jobTitle?.name || "Giám đốc"}
                         </span>
                     )}

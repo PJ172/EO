@@ -82,7 +82,11 @@ export class BookingController {
   @Delete(':id')
   @Permissions('ROOM_BOOK')
   @Audit(Action.DELETE)
-  async deleteBooking(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.bookingService.deleteBooking(id, user.id);
+  async deleteBooking(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Query('deleteAll') deleteAll?: string,
+  ) {
+    return this.bookingService.deleteBooking(id, user.id, deleteAll === 'true');
   }
 }

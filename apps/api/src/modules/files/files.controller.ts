@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   NotFoundException,
   UseGuards,
+  Body,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FilesService } from './files.service';
@@ -32,7 +33,17 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: UPLOAD_DIR,
+        destination: (req, file, cb) => {
+          const folder = req.body.folder; // e.g. "meeting"
+          let dest = UPLOAD_DIR;
+          if (folder) {
+            dest = join(UPLOAD_DIR, folder);
+          }
+          if (!existsSync(dest)) {
+            import('fs').then(fs => fs.mkdirSync(dest, { recursive: true }));
+          }
+          cb(null, dest);
+        },
         filename: (req, file, cb) => {
           // Generate a random filename to avoid collisions
           const uniqueSuffix =
@@ -46,19 +57,17 @@ export class FilesController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: any,
+    @Body() body: any,
   ) {
-    console.log('Upload Request Received');
-    console.log('User:', user);
-    console.log('File:', file);
-
-    if (!file) {
-      throw new Error('File is undefined in controller');
-    }
-    if (!user) {
-      throw new Error('User is undefined in controller');
-    }
+    if (!file) throw new Error('File is undefined in controller');
+    if (!user) throw new Error('User is undefined in controller');
 
     try {
+      // Handle moving old file if requested
+      if (body.oldFileId && body.folder) {
+        await this.filesService.moveOldFile(body.oldFileId, body.folder);
+      }
+
       const savedFile = await this.filesService.saveFileRecord(file, user.id);
       return savedFile;
     } catch (error) {

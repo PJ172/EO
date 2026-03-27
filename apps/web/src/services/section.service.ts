@@ -18,6 +18,8 @@ export interface Section {
     createdBy?: { id: string; username: string; email: string } | null;
     updatedBy?: { id: string; username: string; email: string } | null;
     _count?: { employees: number };
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export interface CreateSectionInput {
@@ -28,6 +30,8 @@ export interface CreateSectionInput {
     note?: string;
     status?: "ACTIVE" | "INACTIVE";
     showOnOrgChart?: boolean;
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export type UpdateSectionInput = Partial<CreateSectionInput>;

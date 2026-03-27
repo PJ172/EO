@@ -131,9 +131,9 @@ export default memo(function StructureNode({
                 }}
             >
                 {/* Header — centered, no collapse button */}
-                <div className="px-4 pt-4 pb-3 text-center">
+                <div className="px-4 pt-5 pb-3 text-center">
                     <h3
-                        className="font-extrabold text-[14px] leading-snug line-clamp-2"
+                        className="font-extrabold text-[14px] leading-normal line-clamp-2"
                         style={{ color: textColor }}
                         title={data.label}
                     >
@@ -159,11 +159,11 @@ export default memo(function StructureNode({
                             />
 
                             <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-bold text-white leading-tight truncate">
+                                <p className="text-[13px] font-bold text-white leading-normal truncate">
                                     {data.manager.name}
                                 </p>
                                 {data.manager.jobTitle && (
-                                    <p className="text-[10px] text-white/55 truncate mt-0.5">{data.manager.jobTitle}</p>
+                                    <p className="text-[10px] text-white/60 leading-relaxed truncate mt-0.5">{data.manager.jobTitle}</p>
                                 )}
                                 <div className="mt-1 space-y-0.5">
                                     {data.manager.email && (

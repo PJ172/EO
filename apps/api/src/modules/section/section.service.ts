@@ -26,6 +26,8 @@ export interface CreateSectionDto {
   note?: string;
   status?: 'ACTIVE' | 'INACTIVE';
   showOnOrgChart?: boolean;
+  useManagerDisplayTitle?: boolean;
+  managerDisplayTitle?: string | null;
 }
 
 export type UpdateSectionDto = Partial<CreateSectionDto>;

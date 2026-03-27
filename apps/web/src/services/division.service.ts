@@ -18,6 +18,8 @@ export interface Division {
     manager?: { id: string; fullName: string; employeeCode: string; avatar?: string | null; jobTitle?: { name: string } | null } | null;
     managerEmployeeId?: string | null;
     _count?: { employees: number; departments: number };
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export interface CreateDivisionInput {
@@ -27,6 +29,8 @@ export interface CreateDivisionInput {
     note?: string;
     status?: "ACTIVE" | "INACTIVE";
     showOnOrgChart?: boolean;
+    useManagerDisplayTitle?: boolean;
+    managerDisplayTitle?: string | null;
 }
 
 export type UpdateDivisionInput = Partial<CreateDivisionInput>;

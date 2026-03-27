@@ -393,8 +393,10 @@ export const projectsApi = {
 
 // Upload API Helpers
 export const uploadApi = {
-    upload: (file: File) => {
+    upload: (file: File, folder?: string, oldFileId?: string) => {
         const formData = new FormData();
+        if (folder) formData.append('folder', folder);
+        if (oldFileId) formData.append('oldFileId', oldFileId);
         formData.append('file', file);
         return apiPost<any>('/files/upload', formData, {
             headers: {
