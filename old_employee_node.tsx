@@ -1,4 +1,4 @@
-import { getAvatarVariant } from "../../../lib/utils";
+﻿import { getAvatarVariant } from "../../../lib/utils";
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { X, EyeOff } from 'lucide-react';
@@ -9,23 +9,23 @@ const SERVER_BASE = process.env.NEXT_PUBLIC_SOCKET_URL
     || (process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', ''))
     || 'http://localhost:3001';
 
-// ─── Phân cấp màu sắc theo chức danh ────────────────────────────────
+// ??? Ph?n c?p m?u s?c theo ch?c danh ????????????????????????????????
 type Tier = 'director' | 'manager' | 'supervisor' | 'staff';
 
 function getJobTier(jobTitle: string): Tier {
     const jt = (jobTitle || '').toLowerCase();
     if (
-        jt.includes('giám đốc') || jt.includes('tổng giám đốc') ||
-        jt.includes('chủ tịch') || jt.includes('phó giám đốc')
+        jt.includes('gi?m ??c') || jt.includes('t?ng gi?m ??c') ||
+        jt.includes('ch? t?ch') || jt.includes('ph? gi?m ??c')
     ) return 'director';
     if (
-        jt.includes('trưởng phòng') || jt.includes('phó phòng') ||
-        jt.includes('quản lý') || jt.includes('trưởng nhóm') ||
-        jt.includes('trưởng bộ phận') || jt.includes('tổ trưởng')
+        jt.includes('tr??ng ph?ng') || jt.includes('ph? ph?ng') ||
+        jt.includes('qu?n l?') || jt.includes('tr??ng nh?m') ||
+        jt.includes('tr??ng b? ph?n') || jt.includes('t? tr??ng')
     ) return 'manager';
     if (
-        jt.includes('giám sát') || jt.includes('chuyên viên') ||
-        jt.includes('kiểm soát') || jt.includes('kiểm tra')
+        jt.includes('gi?m s?t') || jt.includes('chuy?n vi?n') ||
+        jt.includes('ki?m so?t') || jt.includes('ki?m tra')
     ) return 'supervisor';
     return 'staff';
 }
@@ -90,9 +90,8 @@ interface EmployeeNodeProps {
         onHide?: () => void;
         email?: string;
         phone?: string;
-        /** True for CTyH/TGĐ/GĐK shown as global context above dept chart */
+        /** True for CTyH/TG?/G?K shown as global context above dept chart */
         isGlobalContext?: boolean;
-        onChangeLevel?: (nodeId: string, level: string) => void;
     };
     id: string;
     targetPosition?: Position;
@@ -138,41 +137,22 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
         >
             {/* Design Mode: Hide Button */}
             {dm && (
-                <>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); data.onHide?.(); }}
-                        className={cn(
-                            "absolute -top-3 -right-3 w-7 h-7 rounded-full flex items-center justify-center shadow-md z-50 transition-all",
-                            data.isHidden ? "bg-slate-500 text-white" : "bg-rose-500 text-white hover:bg-rose-600"
-                        )}
-                    >
-                        {data.isHidden ? <EyeOff className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                    </button>
-                    {/* Design Mode: Level Selector */}
-                    <div className="absolute top-1 left-2 z-50">
-                        <select
-                            value={data.customLevel || `L${data.level || 1}`}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                data.onChangeLevel?.(id, e.target.value);
-                            }}
-                            className="text-[9px] font-bold bg-white/90 border border-slate-300 rounded px-1 py-0.5 outline-none text-slate-700 cursor-pointer hover:border-amber-400"
-                            title="Chọn Lớp (Từ L1 đến L10)"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {Array.from({ length: 10 }).map((_, i) => (
-                                <option key={i} value={`L${i + 1}`}>Lớp L{i + 1}</option>
-                            ))}
-                        </select>
-                    </div>
-                </>
+                <button
+                    onClick={(e) => { e.stopPropagation(); data.onHide?.(); }}
+                    className={cn(
+                        "absolute -top-3 -right-3 w-7 h-7 rounded-full flex items-center justify-center shadow-md z-50 transition-all",
+                        data.isHidden ? "bg-slate-500 text-white" : "bg-rose-500 text-white hover:bg-rose-600"
+                    )}
+                >
+                    {data.isHidden ? <EyeOff className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                </button>
             )}
 
-            {/* ── Handles: fully transparent in lock mode, colored in design mode ── */}
+            {/* ?? Handles: fully transparent in lock mode, colored in design mode ?? */}
             {/* Top target (incoming) */}
             <Handle type="target" position={Position.Top} id="top"
                 className={dm ? DESIGN_HANDLE_T : LOCK_HANDLE} />
-            {/* Top source (outgoing upward — rare) */}
+            {/* Top source (outgoing upward ? rare) */}
             <Handle type="source" position={Position.Top} id="top-source"
                 className={LOCK_HANDLE} />
 
@@ -183,24 +163,29 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
             <Handle type="target" position={Position.Bottom} id="bottom-target"
                 className={LOCK_HANDLE} />
 
-            {/* Left — matrix/secondary */}
+            {/* Left ? matrix/secondary */}
             <Handle type="target" position={Position.Left} id="left"
                 className={dm ? DESIGN_HANDLE_L : LOCK_HANDLE} />
             <Handle type="source" position={Position.Left} id="left-source"
                 className={LOCK_HANDLE} />
 
-            {/* Right — matrix/secondary */}
+            {/* Right ? matrix/secondary */}
             <Handle type="source" position={Position.Right} id="right"
                 className={dm ? DESIGN_HANDLE_R : LOCK_HANDLE} />
             <Handle type="target" position={Position.Right} id="right-target"
                 className={LOCK_HANDLE} />
 
-            {/* Tier accent line — top gradient bar */}
+            {/* Tier accent line ? top gradient bar */}
             {!data.customBg && (tier === 'director' || tier === 'manager') && (
                 <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${tier === 'director' ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} />
             )}
 
-
+            {/* Global Context Label */}
+            {data.isGlobalContext && (
+                <div className="absolute top-1 left-2 text-[8px] font-bold uppercase tracking-widest text-slate-400 z-50">
+                    C?p tr?n
+                </div>
+            )}
 
             {/* Avatar */}
             <div className="relative mb-4">
@@ -230,24 +215,24 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                     {data.employeeCode}
                 </div>
                 <h3
-                    className="font-extrabold text-base leading-normal tracking-tight line-clamp-2 w-full text-center"
+                    className="font-extrabold text-base leading-tight tracking-tight line-clamp-2 w-full text-center"
                     style={{ color: data.customText ? textColor : 'rgb(30 41 59)' }}
                 >
                     {data.fullName}
                 </h3>
                 <div className="flex flex-col items-center w-full gap-1 mt-0.5">
-                    <div className={cn("px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider leading-relaxed shadow-sm max-w-full truncate", style.badge)}>
-                        {data.jobTitle || 'Nhân viên'}
+                    <div className={cn("px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider shadow-sm max-w-full truncate", style.badge)}>
+                        {data.jobTitle || 'Nh?n vi?n'}
                     </div>
                     {data.jobPosition && (
-                        <div className="px-2 py-0.5 rounded-md text-[8.5px] font-bold uppercase tracking-wide leading-relaxed text-slate-500 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 max-w-[95%] truncate">
+                        <div className="px-2 py-0.5 rounded-md text-[8.5px] font-bold uppercase tracking-wide text-slate-500 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 max-w-[95%] truncate">
                             {data.jobPosition}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Collapse toggle — z-50 to avoid edge overlap */}
+            {/* Collapse toggle ? z-50 to avoid edge overlap */}
             {data.hasChildren && (
                 <button
                     className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 bg-white border border-slate-200 hover:border-blue-400 rounded-full flex justify-center items-center shadow-md z-50 transition-all hover:scale-110 text-slate-400 hover:text-blue-500 active:scale-95 pointer-events-auto"

@@ -1,0 +1,17 @@
+                {/* Auto-saved configurations. Design Mode & Save Toolbar Removed as requested */}
+
+                {/* Zoom indicator */}
+                <Panel position="bottom-right" className="mb-2 mr-2">
+                    <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm flex items-center gap-1">
+                        <span className="text-[11px] font-bold text-slate-400 tracking-widest uppercase">Zoom:</span>
+                        <input
+                            type="number"
+                            min="10" max="400"
+                            value={Math.round(zoom * 100)}
+                            disabled={isLocked && !isDesignMode}
+                            onChange={(e) => setViewport({ x, y, zoom: Number(e.target.value) / 100 })}
+                            className="w-10 text-[11px] font-bold text-slate-700 bg-transparent border-none p-0 text-right focus:ring-0 focus:outline-none"
+                        />
+                        <span className="text-[11px] font-bold text-slate-400 uppercase">%</span>
+                    </div>
+                </Panel>

@@ -204,7 +204,7 @@ export default function OrgChartPage() {
     const { data: departmentsRaw } = useQuery({
         queryKey: ['org-chart', 'dept-combobox'],
         queryFn: async () => {
-            const res = await apiClient.get('/departments', { params: { limit: 500, status: 'ACTIVE' } });
+            const res = await apiClient.get('/organization', { params: { limit: 500, status: 'ACTIVE' } });
             return res.data;
         },
         staleTime: 60000, // 1 phút — refresh sau toggle showOnOrgChart

@@ -25,7 +25,7 @@ import {
     Plus, FileDown, ArrowUpDown, ChevronUp, ChevronDown, Trash2,
     LayoutList, LayoutGrid, Users, UserCheck, UserX, Clock,
     MoreHorizontal, Pencil, Upload, ArchiveRestore, Settings2, Save, X, RotateCw, Filter,
-    Building2, Factory, GitFork, Calendar, Briefcase
+    Building2, Factory, GitFork, Calendar, Briefcase, Crosshair
 } from "lucide-react";
 import {
     useEmployees, useExportEmployees, useDeleteEmployee, useBulkDeleteEmployees,
@@ -38,6 +38,7 @@ import { useFactories } from "@/services/factory.service";
 import { useDivisions } from "@/services/division.service";
 import { useSections } from "@/services/section.service";
 import { useJobTitles } from "@/services/employee.service";
+import { usePositions } from "@/services/position.service";
 import Link from "next/link";
 import { SearchBar } from "@/components/ui/search-bar";
 import { ImportEmployeeDialog } from "@/components/employees/import-employee-dialog";
@@ -192,7 +193,7 @@ const formatDate = (dateString?: string) => {
 const BirthDateCell = React.memo(({ dob }: { dob?: string }) => {
     const txt = "text-xs text-foreground whitespace-nowrap";
     if (!dob) return <span className={txt}>—</span>;
-    
+
     // Memoize the calculation based on dob and "today" (daily basis)
     const { label, cls, daysLeft } = useMemo(() => {
         const today = new Date();
@@ -211,7 +212,7 @@ const BirthDateCell = React.memo(({ dob }: { dob?: string }) => {
         else if (dLeft <= 3) c = "text-sm font-bold text-red-500";
         else if (dLeft <= 15) c = "text-sm font-semibold text-amber-500";
         else if (dLeft <= 30) c = "text-sm font-medium text-blue-500";
-        
+
         return { label: formatDate(dob), cls: c, daysLeft: dLeft };
     }, [dob]);
 
@@ -228,7 +229,7 @@ const AgeCell = React.memo(({ age, dob }: { age?: number; dob?: string }) => {
     const txt = "text-xs text-foreground whitespace-nowrap";
     if (age !== undefined && age !== null) return <span className={txt}>{age}</span>;
     if (!dob) return <span className={txt}>—</span>;
-    
+
     const calculatedAge = useMemo(() => {
         const bDate = new Date(dob);
         const today = new Date();
@@ -238,7 +239,7 @@ const AgeCell = React.memo(({ age, dob }: { age?: number; dob?: string }) => {
         }
         return a;
     }, [dob]);
-    
+
     return <span className={txt}>{calculatedAge}</span>;
 });
 AgeCell.displayName = "AgeCell";
@@ -246,7 +247,7 @@ AgeCell.displayName = "AgeCell";
 const FamilyMembersCell = React.memo(({ members }: { members: any[] }) => {
     const relMap: Record<string, string> = { MOTHER: 'Mẹ', FATHER: 'Bố', SPOUSE: 'Vợ/Chồng', WIFE: 'Vợ', HUSBAND: 'Chồng', CHILD: 'Con', SIBLING: 'Anh/Chị/Em', BROTHER: 'Anh/Em trai', SISTER: 'Chị/Em gái', DEPENDENT: 'Người phụ thuộc', OTHER: 'Khác' };
     if (!members || members.length === 0) return <span className="text-xs text-foreground">—</span>;
-    
+
     const first = members[0];
     const label = `${first.name} (${relMap[first.relationship] || first.relationship})`;
     const remaining = members.length - 1;
@@ -281,7 +282,7 @@ FamilyMembersCell.displayName = "FamilyMembersCell";
 const ContractsCell = React.memo(({ contracts }: { contracts?: any[] }) => {
     const typeMap: Record<string, string> = { PROBATION: 'Thử việc', DEFINITE_TERM: 'Có thời hạn', INDEFINITE_TERM: 'Không thời hạn', SEASONAL: 'Thời vụ', ONE_YEAR: '1 năm', TWO_YEARS: '2 năm', THREE_YEARS: '3 năm' };
     if (!contracts || contracts.length === 0) return <span className="text-xs text-foreground">—</span>;
-    
+
     const first = contracts[0];
     const label = first.contractNumber ? `${first.contractNumber} (${typeMap[first.contractType] || first.contractType})` : `HĐ (${typeMap[first.contractType] || first.contractType})`;
     const remaining = contracts.length - 1;
@@ -501,8 +502,8 @@ const EmployeeRow = React.memo(({
                     key={col.key}
                     className={cn(
                         "border-r border-border/20 last:border-r-0 p-0 align-top",
-                        ["fullName", "company", "factory", "division", "section", "email", "personalEmail", "department"].includes(col.key) 
-                            ? "overflow-visible" 
+                        ["fullName", "company", "factory", "division", "section", "email", "personalEmail", "department"].includes(col.key)
+                            ? "overflow-visible"
                             : "overflow-hidden text-ellipsis"
                     )}
                     onDoubleClick={() => onDoubleClickCell(employee.id, col.key, employee[col.key])}
@@ -537,12 +538,13 @@ export default function EmployeeListPage() {
     const [departmentFilter, setDepartmentFilter] = useQueryState("department", { defaultValue: "" });
     const [sectionFilter, setSectionFilter] = useQueryState("section", { defaultValue: "" });
     const [jobTitleFilter, setJobTitleFilter] = useQueryState("jobTitle", { defaultValue: "" });
+    const [positionFilter, setPositionFilter] = useQueryState("position", { defaultValue: "" });
     const [dobFrom, setDobFrom] = useQueryState("dobFrom", { defaultValue: "" });
     const [dobTo, setDobTo] = useQueryState("dobTo", { defaultValue: "" });
     const [joinedFrom, setJoinedFrom] = useQueryState("joinedFrom", { defaultValue: "" });
     const [joinedTo, setJoinedTo] = useQueryState("joinedTo", { defaultValue: "" });
     const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-    
+
     // Fetch options for filters (With Cascade support)
     const { data: compResp } = useCompanies({ limit: 100, excludeFromFilters: "false" } as any);
     const { data: facResp } = useFactories({ limit: 100, companyId: companyFilter || undefined, excludeFromFilters: "false" } as any);
@@ -550,21 +552,23 @@ export default function EmployeeListPage() {
     const { data: deptResponse } = useDepartments({ limit: 100, divisionId: divisionFilter || undefined, excludeFromFilters: "false" } as any);
     const { data: secResp } = useSections({ limit: 100, departmentId: departmentFilter || undefined, excludeFromFilters: "false" } as any);
     const { data: jtResp } = useJobTitles();
+    const { data: posResp } = usePositions({ departmentId: departmentFilter || undefined, sectionId: sectionFilter || undefined });
 
-    const companies = compResp?.data || [];
-    const factories = facResp?.data || [];
-    const divisions = divResp?.data || [];
-    const departments = deptResponse?.data || [];
-    const sections = secResp?.data || [];
-    const jobTitles = jtResp?.data || [];
+    const companies = [...(compResp?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const factories = [...(facResp?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const divisions = [...(divResp?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const departments = [...(deptResponse?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const sections = [...(secResp?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const jobTitles = [...(jtResp?.data || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
+    const positions = [...(posResp || [])].sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'vi'));
 
     const [isSelectionTransitioning, startSelectionTransition] = React.useTransition();
-    
+
     // Inline edit state
     const [editingCell, setEditingCell] = useState<{ id: string, key: string } | null>(null);
     const [editValue, setEditValue] = useState<string>("");
     const updateEmployee = useUpdateEmployee();
-    
+
     // Virtualization
     const parentRef = useRef<HTMLDivElement>(null);
 
@@ -592,7 +596,7 @@ export default function EmployeeListPage() {
     const handleEditSave = useCallback(async () => {
         if (!editingCell) return;
         const { id, key } = editingCell;
-        
+
         try {
             await updateEmployee.mutateAsync({ id, [key]: editValue });
             toast.success("Đã cập nhật dữ liệu");
@@ -644,11 +648,11 @@ export default function EmployeeListPage() {
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        
+
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
-        
+
         searchTimeoutRef.current = setTimeout(() => {
             setDebouncedSearch(value);
             setPage(1);
@@ -694,6 +698,7 @@ export default function EmployeeListPage() {
         departmentId: departmentFilter || undefined,
         sectionId: sectionFilter || undefined,
         jobTitleId: jobTitleFilter || undefined,
+        positionId: positionFilter || undefined,
         dobFrom: dobFrom || undefined,
         dobTo: dobTo || undefined,
         joinedFrom: joinedFrom || undefined,
@@ -917,6 +922,10 @@ export default function EmployeeListPage() {
             const item = jobTitles.find((j: any) => j.id === jobTitleFilter);
             arr.push({ key: "jobTitle", label: `Chức danh: ${item?.name || "..."}`, onClear: () => setJobTitleFilter("") });
         }
+        if (positionFilter) {
+            const item = positions.find((p: any) => p.id === positionFilter);
+            arr.push({ key: "position", label: `Vị trí: ${item?.name || "..."}`, onClear: () => setPositionFilter("") });
+        }
         if (dobFrom || dobTo) {
             arr.push({ key: "dob", label: `Ngày sinh: ${dobFrom || ""} - ${dobTo || ""}`, onClear: () => { setDobFrom(""); setDobTo(""); } });
         }
@@ -924,7 +933,7 @@ export default function EmployeeListPage() {
             arr.push({ key: "joined", label: `Vào làm: ${joinedFrom || ""} - ${joinedTo || ""}`, onClear: () => { setJoinedFrom(""); setJoinedTo(""); } });
         }
         return arr;
-    }, [statusFilter, companyFilter, factoryFilter, divisionFilter, departmentFilter, sectionFilter, jobTitleFilter, dobFrom, dobTo, joinedFrom, joinedTo, companies, factories, divisions, departments, sections, jobTitles]);
+    }, [statusFilter, companyFilter, factoryFilter, divisionFilter, departmentFilter, sectionFilter, jobTitleFilter, positionFilter, dobFrom, dobTo, joinedFrom, joinedTo, companies, factories, divisions, departments, sections, jobTitles, positions]);
 
     if (!checkPermission("EMPLOYEE_READ")) {
         return <div className="flex items-center justify-center p-8 mt-20 text-muted-foreground">Bạn không có quyền truy cập trang này.</div>;
@@ -948,15 +957,15 @@ export default function EmployeeListPage() {
                     refreshLabel="Làm mới"
                     pills={
                         activePills.map(pill => (
-                             <Badge key={pill.key} className="h-7 px-2.5 gap-1.5 bg-blue-500/10 hover:bg-blue-500/15 text-blue-600 border-none rounded-lg text-xs font-medium transition-all shadow-none">
-                                 <span>{pill.label}</span>
-                                 <div 
-                                     className="flex items-center justify-center rounded-full hover:bg-blue-500/20 p-0.5 cursor-pointer pointer-events-auto"
-                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); pill.onClear(); }}
-                                 >
-                                     <X className="h-3 w-3 transition-colors" />
-                                 </div>
-                             </Badge>
+                            <Badge key={pill.key} className="h-7 px-2.5 gap-1.5 bg-blue-500/10 hover:bg-blue-500/15 text-blue-600 border-none rounded-lg text-xs font-medium transition-all shadow-none">
+                                <span>{pill.label}</span>
+                                <div
+                                    className="flex items-center justify-center rounded-full hover:bg-blue-500/20 p-0.5 cursor-pointer pointer-events-auto"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); pill.onClear(); }}
+                                >
+                                    <X className="h-3 w-3 transition-colors" />
+                                </div>
+                            </Badge>
                         ))
                     }
                     search={
@@ -992,16 +1001,13 @@ export default function EmployeeListPage() {
                                         <Filter className="h-4 w-4 text-primary" />
                                         Bộ lọc nâng cao
                                     </SheetTitle>
-                                    <SheetDescription>
-                                        Tuỳ chỉnh nhiều tiêu chí để tìm kiếm nhân sự chính xác.
-                                    </SheetDescription>
                                 </SheetHeader>
-                                
-                                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
                                     {/* --- Phân nhóm 1: Cơ cấu tổ chức --- */}
-                                    <div className="pt-1">
+                                    <div className="pt-0">
                                         <div className="flex items-center gap-2 mb-3">
-                                            <div className="h-3.5 w-1 bg-blue-600 rounded-full" />
+                                            <div className="h-4 w-1 bg-blue-600 rounded-full" />
                                             <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">Cơ cấu tổ chức</span>
                                         </div>
                                     </div>
@@ -1066,15 +1072,7 @@ export default function EmployeeListPage() {
                                         </Select>
                                     </div>
 
-                                    {/* --- Phân nhóm 2: Thông tin hành chính --- */}
-                                    <div className="pt-4 border-t border-border/50">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="h-3.5 w-1 bg-green-600 rounded-full" />
-                                            <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">Thông tin cá nhân</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Chức vụ */}
+                                    {/* Chức danh */}
                                     <div className="space-y-2">
                                         <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><UserCheck className="h-3.5 w-3.5" /> Chức danh</Label>
                                         <Select value={jobTitleFilter || "ALL"} onValueChange={(val) => { const v = val === "ALL" ? "" : val; setJobTitleFilter(v); }}>
@@ -1084,6 +1082,26 @@ export default function EmployeeListPage() {
                                                 {jobTitles.map((j: any) => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+
+                                    {/* Vị trí công việc */}
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Crosshair className="h-3.5 w-3.5" /> Vị trí công việc</Label>
+                                        <Select value={positionFilter || "ALL"} onValueChange={(val) => { const v = val === "ALL" ? "" : val; setPositionFilter(v); }}>
+                                            <SelectTrigger className="h-9 rounded-lg hover:bg-muted/30 transition-colors"><SelectValue placeholder="Tất cả vị trí" /></SelectTrigger>
+                                            <SelectContent className="rounded-xl">
+                                                <SelectItem value="ALL">Tất cả vị trí</SelectItem>
+                                                {positions.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* --- Phân nhóm 2: Thông tin cá nhân --- */}
+                                    <div className="pt-4 border-t border-border/50">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className="h-3.5 w-1 bg-green-600 rounded-full" />
+                                            <span className="text-xs font-bold uppercase tracking-wider text-foreground/80">Thông tin cá nhân</span>
+                                        </div>
                                     </div>
 
                                     {/* Trạng thái */}
@@ -1123,7 +1141,7 @@ export default function EmployeeListPage() {
                                 <SheetFooter className="p-4 border-t border-border/50 bg-muted/10 flex items-center gap-2 flex-row sm:justify-end">
                                     <Button variant="ghost" size="sm" className="h-9 flex-1 rounded-lg border border-border/30 hover:bg-destructive/10 text-destructive hover:text-destructive"
                                         onClick={() => {
-                                            setCompanyFilter(""); setFactoryFilter(""); setDivisionFilter(""); setDepartmentFilter(""); setSectionFilter(""); setJobTitleFilter(""); setStatusFilter(""); setDobFrom(""); setDobTo(""); setJoinedFrom(""); setJoinedTo("");
+                                            setCompanyFilter(""); setFactoryFilter(""); setDivisionFilter(""); setDepartmentFilter(""); setSectionFilter(""); setJobTitleFilter(""); setPositionFilter(""); setStatusFilter(""); setDobFrom(""); setDobTo(""); setJoinedFrom(""); setJoinedTo("");
                                         }}
                                     >
                                         Đặt lại
@@ -1137,66 +1155,66 @@ export default function EmployeeListPage() {
                     }
                 >
                     <div className="flex items-center gap-2">
-                            <>
-                                {/* View mode toggle */}
-                                <div className="flex items-center border rounded-lg p-0.5 bg-muted/50 h-9">
-                                    <Button
-                                        variant={viewMode === "list" ? "secondary" : "ghost"}
-                                        size="icon"
-                                        className="h-8 w-8 rounded-lg"
-                                        onClick={() => setViewMode("list")}
-                                        title="Dạng danh sách"
-                                    >
-                                        <LayoutList className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant={viewMode === "grid" ? "secondary" : "ghost"}
-                                        size="icon"
-                                        className="h-8 w-8 rounded-lg"
-                                        onClick={() => setViewMode("grid")}
-                                        title="Dạng lưới"
-                                    >
-                                        <LayoutGrid className="h-4 w-4" />
-                                    </Button>
-                                </div>
-
-                                <Button asChild className="h-9 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 px-5 rounded-lg font-semibold">
-                                    <Link href="/hr/employees/new">
-                                        <Plus className="mr-2 h-4 w-4" /> Thêm mới
-                                    </Link>
+                        <>
+                            {/* View mode toggle */}
+                            <div className="flex items-center border rounded-lg p-0.5 bg-muted/50 h-9">
+                                <Button
+                                    variant={viewMode === "list" ? "secondary" : "ghost"}
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg"
+                                    onClick={() => setViewMode("list")}
+                                    title="Dạng danh sách"
+                                >
+                                    <LayoutList className="h-4 w-4" />
                                 </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="h-9 bg-white/80 backdrop-blur-sm border-border/50 hover:bg-slate-100 transition-all rounded-lg shadow-sm gap-2">
-                                            <Settings2 className="h-4 w-4 text-muted-foreground" />
-                                            <span className="font-semibold text-sm">Tùy chọn</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[200px] border-border shadow-lg">
-                                        <PermissionGate permission="EXPORT_DATA">
-                                            <DropdownMenuItem onClick={handleExport} disabled={exportMutation.isPending} className="py-2.5 cursor-pointer">
-                                                <FileDown className="mr-2 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                                <span>Xuất dữ liệu Excel</span>
+                                <Button
+                                    variant={viewMode === "grid" ? "secondary" : "ghost"}
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg"
+                                    onClick={() => setViewMode("grid")}
+                                    title="Dạng lưới"
+                                >
+                                    <LayoutGrid className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            <Button asChild className="h-9 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 px-5 rounded-lg font-semibold">
+                                <Link href="/hr/employees/new">
+                                    <Plus className="mr-2 h-4 w-4" /> Thêm mới
+                                </Link>
+                            </Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="h-9 bg-white/80 backdrop-blur-sm border-border/50 hover:bg-slate-100 transition-all rounded-lg shadow-sm gap-2">
+                                        <Settings2 className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-semibold text-sm">Tùy chọn</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[200px] border-border shadow-lg">
+                                    <PermissionGate permission="EXPORT_DATA">
+                                        <DropdownMenuItem onClick={handleExport} disabled={exportMutation.isPending} className="py-2.5 cursor-pointer">
+                                            <FileDown className="mr-2 h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                            <span>Xuất dữ liệu Excel</span>
+                                        </DropdownMenuItem>
+                                    </PermissionGate>
+                                    <PermissionGate permission="IMPORT_DATA">
+                                        <DropdownMenuItem onClick={() => setIsImportOpen(true)} className="py-2.5 cursor-pointer">
+                                            <Upload className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                            <span>Nhập dữ liệu Excel</span>
+                                        </DropdownMenuItem>
+                                    </PermissionGate>
+                                    {isAdmin && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => setIsColumnConfigOpen(true)} className="py-2.5 cursor-pointer">
+                                                <Columns3 className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                <span>Sắp xếp cột</span>
                                             </DropdownMenuItem>
-                                        </PermissionGate>
-                                        <PermissionGate permission="IMPORT_DATA">
-                                            <DropdownMenuItem onClick={() => setIsImportOpen(true)} className="py-2.5 cursor-pointer">
-                                                <Upload className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                                <span>Nhập dữ liệu Excel</span>
-                                            </DropdownMenuItem>
-                                        </PermissionGate>
-                                        {isAdmin && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem onClick={() => setIsColumnConfigOpen(true)} className="py-2.5 cursor-pointer">
-                                                    <Columns3 className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                                    <span>Sắp xếp cột</span>
-                                                </DropdownMenuItem>
-                                            </>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </>
                     </div>
                 </PageHeader>
             </div>
@@ -1249,7 +1267,7 @@ export default function EmployeeListPage() {
 
             {/* Content */}
             {viewMode === "list" ? (
-                <div 
+                <div
                     ref={parentRef}
                     className="rounded-xl border border-border bg-card shadow-sm flex-1 overflow-auto animate-in fade-in slide-in-from-bottom-8 duration-700"
                 >
@@ -1312,7 +1330,7 @@ export default function EmployeeListPage() {
                         </div>
 
                         {/* Body */}
-                        <div 
+                        <div
                             style={{
                                 height: `${rowVirtualizer.getTotalSize()}px`,
                                 width: '100%',
@@ -1347,7 +1365,7 @@ export default function EmployeeListPage() {
                                                 isSelected && "bg-primary/5"
                                             )}
                                         >
-                                            <div 
+                                            <div
                                                 className="w-[44px] flex items-center justify-center border-r border-border/20 shrink-0 cursor-pointer"
                                                 onClick={(e) => {
                                                     e.stopPropagation();

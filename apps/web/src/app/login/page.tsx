@@ -10,45 +10,8 @@ import { toast } from "@/components/ui/toaster";
 import { Eye, EyeOff, Loader2, User, Lock, ShieldCheck } from "lucide-react";
 import { loginSchema, LoginFormData } from "@/lib/validations";
 import { useLogin } from "@/services/auth.service";
+import { SunplastLogo } from "@/components/ui/sunplast-logo";
 
-/* ─── Sunplast Logo SVG (exact brand: red circle + "plast" navy) ─── */
-function SunplastLogo({ size = 48 }: { size?: number }) {
-    const r = size * 0.5;
-    return (
-        <svg width={size * 2.6} height={size} viewBox={`0 0 ${size * 2.6} ${size}`} fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Red circle */}
-            <circle cx={r} cy={r} r={r} fill="#CC1E1E" />
-            {/* "Sun" in white inside circle */}
-            <text
-                x={r}
-                y={r * 1.05}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="white"
-                fontFamily="'Arial', sans-serif"
-                fontWeight="800"
-                fontSize={r * 0.72}
-                letterSpacing="-0.5"
-            >
-                Sun
-            </text>
-            {/* "plast" in navy blue */}
-            <text
-                x={size * 1.12}
-                y={r * 1.05}
-                textAnchor="start"
-                dominantBaseline="middle"
-                fill="#1B3A8C"
-                fontFamily="'Arial', sans-serif"
-                fontWeight="800"
-                fontSize={r * 0.72}
-                letterSpacing="-0.5"
-            >
-                plast
-            </text>
-        </svg>
-    );
-}
 
 /* ─── Dot-grid SVG background pattern ─── */
 function DotGrid() {

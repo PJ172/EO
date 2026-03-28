@@ -157,10 +157,11 @@ model OrgChartConfig {
   ranksep     Int      @default(120)
   zoom        Float    @default(0.85)
   nodeDims    Json?    @map("node_dims")
+  nodeColors  Json?    @map("node_colors")
+  nodeLevels  Json?    @map("node_levels")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   updatedById String?  @map("updated_by_id")
-  nodeColors  Json?    @map("node_colors")
   updatedBy   User?    @relation("OrgConfigUpdater", fields: [updatedById], references: [id])
 
   @@map("org_chart_configs")
@@ -1367,6 +1368,7 @@ model ITAsset {
   code            String             @unique
   name            String
   categoryId      String             @map("category_id")
+  assetType       String?            @map("asset_type")  // SERVER, LAPTOP, DESKTOP, MONITOR, PRINTER, ROUTER, SWITCH, ACCESS_POINT, CAMERA, DVR_NVR, OTHER
   brand           String?
   model           String?
   serialNumber    String?            @unique @map("serial_number")
@@ -1376,6 +1378,9 @@ model ITAsset {
   status          AssetStatus        @default(AVAILABLE)
   condition       AssetCondition     @default(GOOD)
   location        String?
+  ipAddress       String?            @map("ip_address")
+  macAddress      String?            @map("mac_address")
+  hostname        String?
   specifications  Json?
   note            String?
   assignedToId    String?            @map("assigned_to_id")
@@ -1385,8 +1390,10 @@ model ITAsset {
   deletedAt       DateTime?          @map("deleted_at")
   deletedBatchId  String?            @map("deleted_batch_id")
   deletedById     String?            @map("deleted_by_id")
-  assignments     AssetAssignment[]
-  maintenances    AssetMaintenance[]
+  assignments         AssetAssignment[]
+  maintenances        AssetMaintenance[]
+  softwareInstalls    SoftwareInstallation[]
+  endpointScans       EndpointScan[]
   assignedTo      Employee?          @relation(fields: [assignedToId], references: [id])
   category        AssetCategory      @relation(fields: [categoryId], references: [id])
   department      Department?        @relation(fields: [departmentId], references: [id])
@@ -1395,6 +1402,7 @@ model ITAsset {
   @@index([categoryId])
   @@index([status])
   @@index([assignedToId])
+  @@index([assetType])
   @@index([deletedAt])
   @@index([deletedBatchId])
   @@map("it_assets")
@@ -1944,6 +1952,83 @@ enum MaintenanceStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+enum SoftwareLicenseType {
+  PAID
+  FREE
+  TRIAL
+  OEM
+  SUBSCRIPTION
+}
+
+// ==========================================
+// CNTT — Software & Endpoint Monitoring
+// ==========================================
+
+model Software {
+  id            String               @id @default(uuid())
+  name          String                                      // Windows 11 Pro, Office 365, etc.
+  vendor        String?                                     // Microsoft, Autodesk, etc.
+  version       String?
+  licenseType   SoftwareLicenseType  @default(FREE) @map("license_type")
+  licenseKey    String?              @map("license_key")
+  maxInstalls   Int?                 @map("max_installs")   // null = unlimited
+  purchaseDate  DateTime?            @map("purchase_date")
+  expiryDate    DateTime?            @map("expiry_date")
+  cost          Int?                                        // VND
+  note          String?
+  status        String               @default("ACTIVE")    // ACTIVE | INACTIVE | EXPIRED
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  installations SoftwareInstallation[]
+
+  @@index([licenseType])
+  @@index([status])
+  @@map("software")
+}
+
+model SoftwareInstallation {
+  id            String    @id @default(uuid())
+  softwareId    String    @map("software_id")
+  assetId       String    @map("asset_id")
+  installedDate DateTime  @default(now()) @map("installed_date")
+  removedDate   DateTime? @map("removed_date")
+  installedBy   String?   @map("installed_by")           // ADMIN | USER | AGENT
+  isAuthorized  Boolean   @default(true) @map("is_authorized")
+  detectedBy    String?   @map("detected_by")            // MANUAL | AGENT | SCAN
+  version       String?
+  note          String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  software      Software  @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  asset         ITAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([softwareId])
+  @@index([assetId])
+  @@index([isAuthorized])
+  @@map("software_installations")
+}
+
+model EndpointScan {
+  id           String   @id @default(uuid())
+  assetId      String   @map("asset_id")
+  scannedAt    DateTime @default(now()) @map("scanned_at")
+  hostname     String?
+  osVersion    String?  @map("os_version")
+  cpuInfo      String?  @map("cpu_info")
+  ramTotal     Int?     @map("ram_total")             // MB
+  diskTotal    Int?     @map("disk_total")            // GB
+  diskFree     Int?     @map("disk_free")             // GB
+  ipAddress    String?  @map("ip_address")
+  macAddress   String?  @map("mac_address")
+  uptime       Int?                                   // minutes
+  healthScore  Int?     @map("health_score")          // 0-100
+  softwareList Json?    @map("software_list")         // snapshot [{name, version, installDate}]
+  asset        ITAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([scannedAt])
+  @@map("endpoint_scans")
 }
 
 enum TicketApproverType {

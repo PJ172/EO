@@ -1,0 +1,1 @@
+﻿const e = require('./src/modules/employee/services/employee-query.service').EmployeeQueryService; console.log(e);

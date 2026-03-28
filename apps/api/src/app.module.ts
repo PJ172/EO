@@ -54,6 +54,7 @@ import { AIModule } from './modules/ai/ai.module';
 import { PositionModule } from './modules/position/position.module';
 import { CategoryModule } from './modules/category/category.module';
 import { LocationModule } from './modules/location/location.module';
+import { SoftwareModule } from './modules/software/software.module';
 
 // Middleware
 import { HttpLoggerMiddleware } from './common/middleware';
@@ -105,6 +106,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PositionModule,
     CategoryModule,
     LocationModule,
+    SoftwareModule,
 
     // Serve Static Files (Uploads)
     ServeStaticModule.forRoot({

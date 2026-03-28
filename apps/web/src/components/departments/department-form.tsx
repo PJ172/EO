@@ -279,14 +279,16 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
                                 <FormField
                                     control={form.control}
                                     name="parentId"
-                                    render={({ field }) => (
+                                    render={({ field }) => {
+                                        const selectedDivisionName = divisions.find(d => d.id === field.value)?.name || department?.division?.name;
+                                        return (
                                         <FormItem className="flex flex-col md:col-span-2">
                                             <FormLabel>Trực thuộc</FormLabel>
                                             <Popover open={openParent} onOpenChange={setOpenParent}>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
                                                         <Button variant="outline" role="combobox" className={cn("w-full justify-between h-10 focus:ring-2 focus:ring-teal-500", !field.value && "text-muted-foreground")}>
-                                                            {field.value ? divisions.find(d => d.id === field.value)?.name || "Chọn khối trực thuộc" : "Chọn khối trực thuộc"}
+                                                            {field.value && selectedDivisionName ? selectedDivisionName : "Chọn khối trực thuộc"}
                                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                         </Button>
                                                     </FormControl>
@@ -314,26 +316,30 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
                                             </Popover>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
+                                    );}}
                                 />
     
                                 <FormField
                                     control={form.control}
                                     name="managerEmployeeId"
-                                    render={({ field }) => (
+                                    render={({ field }) => {
+                                        const selectedEmployee = employees?.data?.find((e: any) => e.id === field.value);
+                                        const displayName = selectedEmployee?.fullName || department?.manager?.fullName;
+                                        const displayAvatar = selectedEmployee?.avatar || undefined;
+                                        return (
                                         <FormItem className="flex flex-col md:col-span-2">
                                             <FormLabel>Quản lý phòng ban</FormLabel>
                                             <Popover open={openManager} onOpenChange={setOpenManager}>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
                                                         <Button variant="outline" role="combobox" className={cn("w-full justify-between h-10 focus:ring-2 focus:ring-teal-500", !field.value && "text-muted-foreground")}>
-                                                            {field.value ? (
+                                                            {field.value && displayName ? (
                                                                 <div className="flex items-center gap-2">
                                                                     <Avatar className="h-6 w-6">
-                                                                        <AvatarImage src={employees?.data?.find((e: any) => e.id === field.value)?.avatar} />
+                                                                        <AvatarImage src={displayAvatar} />
                                                                         <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
                                                                     </Avatar>
-                                                                    {employees?.data?.find((e: any) => e.id === field.value)?.fullName}
+                                                                    {displayName}
                                                                 </div>
                                                             ) : "Chọn quản lý"}
                                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -372,7 +378,7 @@ function DepartmentFormInternal({ departmentId, initialData, defaultParentId, re
                                             </Popover>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
+                                    );}}
                                 />
     
                                 <FormField

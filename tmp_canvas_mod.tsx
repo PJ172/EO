@@ -18,8 +18,7 @@ import {
     ConnectionLineType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert } from 'lucide-react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -207,15 +206,14 @@ const OrgChartCanvasInner = ({
     const [prevRanksep, setPrevRanksep] = useState(120);
     const [prevLayoutTrigger, setPrevLayoutTrigger] = useState(0);
 
-    const defaultNodeDims: Record<string, { w: number, h: number }> = {
+    const [nodeDims, setNodeDims] = useState<Record<string, { w: number, h: number }>>({
         COMPANY: { w: 272, h: 210 },
         FACTORY: { w: 272, h: 210 },
         DIVISION: { w: 272, h: 210 },
         DEPARTMENT: { w: 272, h: 210 },
         SECTION: { w: 260, h: 80 },
         EMPLOYEE: { w: 254, h: 220 },
-    };
-    const [nodeDims, setNodeDims] = useState<Record<string, { w: number, h: number }>>(defaultNodeDims);
+    });
     const prevNodeDimsRef = useRef(nodeDims);
     const [editingDimType, setEditingDimType] = useState<string>('DIVISION');
 
@@ -233,13 +231,13 @@ const OrgChartCanvasInner = ({
         L4:         { bg: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         L5:         { bg: 'linear-gradient(135deg,#115e59 0%,#0d9488 50%,#14b8a6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         L6:         { bg: 'linear-gradient(135deg,#0c4a6e 0%,#0284c7 50%,#0ea5e9 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L7:         { bg: 'linear-gradient(135deg,#334155 0%,#475569 50%,#64748b 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
+                L7:         { bg: 'linear-gradient(135deg,#334155 0%,#475569 50%,#64748b 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         L8:         { bg: 'linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#8b5cf6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         L9:         { bg: 'linear-gradient(135deg,#831843 0%,#be185d 50%,#ec4899 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         L10:        { bg: 'linear-gradient(135deg,#064e3b 0%,#047857 50%,#10b981 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
     };
-    const [nodeColors, setNodeColors] = useState<Record<string, { bg: string; text: string; border: string }>>(defaultColors);
     const [nodeLevels, setNodeLevels] = useState<Record<string, string>>({});
+    const [nodeColors, setNodeColors] = useState<Record<string, { bg: string; text: string; border: string }>>(defaultColors);
     const [editingColorType, setEditingColorType] = useState<string>('DIVISION');
     const [activeColorTab, setActiveColorTab] = useState<'palette' | 'manual'>('palette');
 
@@ -266,7 +264,7 @@ const OrgChartCanvasInner = ({
             if (conf.nodesep) setNodesep(conf.nodesep);
             if (conf.ranksep) setRanksep(conf.ranksep);
             if (conf.nodeDims) setNodeDims(prev => ({ ...prev, ...conf.nodeDims }));
-            if (conf.nodeColors) setNodeColors(prev => ({ ...prev, ...conf.nodeColors }));
+                        if (conf.nodeColors) setNodeColors(prev => ({ ...prev, ...conf.nodeColors }));
             if (conf.nodeLevels) setNodeLevels(prev => ({ ...prev, ...conf.nodeLevels }));
         }
         
@@ -398,18 +396,20 @@ const OrgChartCanvasInner = ({
         // Auto save hidden status
         const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
         try {
-            await apiClient.post(`/organization/config/${chartKey}/hidden`, {
+            await apiClient.post(`/employees/org-chart/overrides/${chartKey}`, {
                 // @ts-ignore
                 hiddenNodeIds: Array.from(newSet)
             });
-            toast.success('Đã lưu cấu hình thu gọn/ẩn');
+            toast.success('Đã cập nhật hiển thị');
+            // Refetch chart data so hidden/unhidden nodes reflect properly
+            if (onOverridesChange) onOverridesChange();
         } catch (error) {
             toast.error('Lỗi khi lưu thiết kế');
         }
-    }, [apiData]);
+    }, [apiData, onOverridesChange]);
 
     // We can remove saveOverrides completely now
-    const saveDesignConfig = async () => {
+        const saveDesignConfig = async () => {
         const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
         try {
             await apiClient.post(`/employees/org-chart/config/${chartKey}`, {
@@ -425,7 +425,6 @@ const OrgChartCanvasInner = ({
             toast.error('Lỗi khi lưu cấu hình');
         }
     };
-    const saveOverrides = async () => {};
 
     const confirmMatrixConnection = async (type: 'MOVE' | 'MATRIX' | 'HR_CORE') => {
         if (!gatekeeperConn) return;
@@ -582,10 +581,27 @@ const OrgChartCanvasInner = ({
                     const typeKey = isEmployee ? 'EMPLOYEE' : (n.data?.type?.toUpperCase() || 'DEPARTMENT');
                     const typeDims = nodeDims[typeKey] || { w: NODE_W, h: NODE_H };
                     const typeColor = nodeColors[typeKey];
-                    return {
-                        ...n,
-                        data: {
-                            ...n.data,
+                                        const lvl = nodeLevels[n.id] || `L${n.level || 1}`;
+                    const customBgColor = nodeColors[n.id] || nodeColors[lvl];
+                    
+                    
+                        
+                        
+                            
+                            width: currentDims.w,
+                            height: currentDims.h,
+                            isDesignMode: !isLocked,
+                            isHidden: hiddenIds.has(n.id),
+                            onHide: () => onHideNode(n.id),
+                            customBg: customBgColor?.bg,
+                            customText: customBgColor?.text,
+                            customBorder: customBgColor?.border,
+                            customLevel: lvl,
+                            onChangeLevel: (nodeId: string, level: string) => {
+                                setNodeLevels(p => ({...p, [nodeId]: level}));
+                            }
+                        },
+
                             // Thêm Level vừa tính vào Data để render Component Node
                             level: isEmployee ? (empLevelMap.get(n.id) || 1) : null,
                             width: typeDims.w,
@@ -610,11 +626,20 @@ const OrgChartCanvasInner = ({
 
             const visibleEdges = processedEdges.filter(e => !hiddenIds.has(e.source) && !hiddenIds.has(e.target));
 
+            // Separate nodes with saved positions vs. nodes at (0,0)
+            const savedPositionNodes = new Map<string, {x: number, y: number}>();
+            visibleNodes.forEach(n => {
+                if (n.position && (n.position.x !== 0 || n.position.y !== 0)) {
+                    savedPositionNodes.set(n.id, n.position);
+                }
+            });
+            const allAtOrigin = savedPositionNodes.size === 0;
+
             const shouldLayout = layoutTrigger !== prevLayoutTrigger ||
                 nodesep !== prevNodesep ||
                 ranksep !== prevRanksep ||
                 JSON.stringify(nodeDims) !== JSON.stringify(prevNodeDimsRef.current) ||
-                (visibleNodes.length > 0 && visibleNodes.every(n => !n.position || (n.position.x === 0 && n.position.y === 0)));
+                (visibleNodes.length > 0 && allAtOrigin);
 
             if (!mounted) return;
 
@@ -665,7 +690,8 @@ const OrgChartCanvasInner = ({
                         ...n,
                         targetPosition: n.id.startsWith('section-') && !isHorizontal ? Position.Left : (isHorizontal ? Position.Left : Position.Top),
                         sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-                        position: positionMap.get(n.id)!,
+                        // Use saved position from API if available, otherwise use dagre-calculated position
+                        position: savedPositionNodes.get(n.id) ?? positionMap.get(n.id)!,
                     }));
 
                 // Filter edges to only include connected nodes
@@ -925,8 +951,9 @@ const OrgChartCanvasInner = ({
                     </AlertDialogContent>
                 </AlertDialog>
 
-                                {/* Hidden Nodes Unhide Panel */}
-                {!isLocked && apiData?.hiddenNodes && apiData.hiddenNodes.length > 0 && (
+                {/* Hidden Nodes Unhide Panel */}
+                {!isLocked && 
+                {apiData?.hiddenNodes && apiData.hiddenNodes.length > 0 && (
                     <Panel position="top-left" className="mt-2 ml-2">
                         <div className="bg-white/95 backdrop-blur-sm border border-amber-200 rounded-xl shadow-lg p-3 max-w-[260px]">
                             <div className="flex items-center gap-2 mb-2">
@@ -953,7 +980,9 @@ const OrgChartCanvasInner = ({
                         </div>
                     </Panel>
                 )}
+                }
 
+                
                 {/* Design Mode Toolbar restored */}
                 {!isLocked && (
                     <Panel position="bottom-center" className="mb-4 flex gap-2 !cursor-default" onClick={e => e.stopPropagation()}>
@@ -1027,6 +1056,11 @@ const OrgChartCanvasInner = ({
                             <button onClick={saveDesignConfig} className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 p-2 rounded-xl border border-blue-200 transition-colors group">
                                 <Save className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
                                 <span className="text-[9px] font-bold text-blue-700 mt-1 uppercase">Lưu Giao Diện</span>
+                            </button>
+                            <button onClick={() => {
+                                setNodesep(50); setRanksep(120); setNodeDims(defaultNodeDims); setNodeColors(defaultColors); setNodeLevels({});
+                            }} className="flex flex-col items-center justify-center bg-rose-50 hover:bg-rose-100 p-2 rounded-xl border border-rose-200 transition-colors group ml-[-8px]">
+                                <span className="text-[9px] font-bold text-rose-700 uppercase mt-0.5">Reset</span>
                             </button>
                         </div>
                     </Panel>
@@ -1265,6 +1299,7 @@ const OrgChartCanvasInner = ({
                         </div>
                     </Panel>
                 )}
+                }
 
                 {/* MiniMap Removed as requested */}
             </ReactFlow>

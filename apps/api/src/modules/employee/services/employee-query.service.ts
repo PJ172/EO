@@ -708,16 +708,19 @@ export class EmployeeQueryService {
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached;
 
-    // Fetch Custom Matrix Overrides and Config
+    // Fetch Custom Matrix Overrides, Config, and View Overrides (hidden nodes)
     let config: any = null;
     let matrixOverrides: any[] = [];
+    let viewOverride: any = null;
     try {
-      const [c, mo] = await Promise.all([
+      const [c, mo, vo] = await Promise.all([
         this.prisma.orgChartConfig.findUnique({ where: { id: chartKey } }),
         this.prisma.orgChartOverride.findMany(),
+        this.prisma.orgChartViewOverride.findUnique({ where: { chartKey } }),
       ]);
       config = c || await this.prisma.orgChartConfig.findUnique({ where: { id: 'global-config' } });
       matrixOverrides = mo || [];
+      viewOverride = vo;
     } catch (error) {
       console.warn(`[WARN] Config table or Override table missing/error. Fallback active.`);
     }
@@ -725,6 +728,16 @@ export class EmployeeQueryService {
     const hiddenIds = new Set<string>();
     const customSolidEdges = new Map<string, string>(); // Target -> Source (MOVE_NODE)
     const customDottedEdges: { source: string; target: string }[] = []; // ADD_DOTTED_LINE
+
+    // Load hidden IDs from OrgChartViewOverride (per-chart hidden nodes)
+    if (viewOverride?.hiddenNodeIds) {
+      try {
+        const savedHidden = typeof viewOverride.hiddenNodeIds === 'string'
+          ? JSON.parse(viewOverride.hiddenNodeIds)
+          : viewOverride.hiddenNodeIds;
+        if (Array.isArray(savedHidden)) savedHidden.forEach((id: string) => hiddenIds.add(id));
+      } catch (_) { /* ignore parse errors */ }
+    }
 
     matrixOverrides.forEach(ov => {
       if (ov.action === 'HIDE_NODE') {
@@ -1079,7 +1092,7 @@ export class EmployeeQueryService {
     const div = department.division as any;
     if (div) {
       // Division manager (GĐK)
-      if (div.managerEmployeeId && !employeeIds.has(div.managerEmployeeId)) {
+      if (div.managerEmployeeId) {
         const divMgr = await this.prisma.employee.findUnique({
           where: { id: div.managerEmployeeId },
           select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
@@ -1089,7 +1102,7 @@ export class EmployeeQueryService {
       const fac = div.factory as any;
       if (fac) {
         // Factory manager
-        if (fac.managerEmployeeId && !employeeIds.has(fac.managerEmployeeId) && !globalContextChain.find(g => g.id === fac.managerEmployeeId)) {
+        if (fac.managerEmployeeId && !globalContextChain.find(g => g.id === fac.managerEmployeeId)) {
           const facMgr = await this.prisma.employee.findUnique({
             where: { id: fac.managerEmployeeId },
             select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
@@ -1097,7 +1110,7 @@ export class EmployeeQueryService {
           if (facMgr) globalContextChain.unshift({ id: facMgr.id, fullName: facMgr.fullName, avatar: facMgr.avatar, jobTitleName: facMgr.jobTitle?.name, jobPositionName: facMgr.currentPosition?.name, orgLevel: facMgr.orgLevel });
         }
         const comp = fac.company as any;
-        if (comp && comp.managerEmployeeId && !employeeIds.has(comp.managerEmployeeId) && !globalContextChain.find(g => g.id === comp.managerEmployeeId)) {
+        if (comp && comp.managerEmployeeId && !globalContextChain.find(g => g.id === comp.managerEmployeeId)) {
           const compMgr = await this.prisma.employee.findUnique({
             where: { id: comp.managerEmployeeId },
             select: { id: true, fullName: true, avatar: true, orgLevel: true, jobTitle: { select: { name: true } }, currentPosition: { select: { name: true } } }
@@ -1125,7 +1138,7 @@ export class EmployeeQueryService {
             isExternalManager: false,
             department: '',
           },
-          position: { x: 0, y: 0 },
+          position: deptPosMap[gEmp.id] ?? { x: 0, y: 0 },
         });
         employeeIds.add(gEmp.id);
       }
@@ -1145,12 +1158,18 @@ export class EmployeeQueryService {
       }
     });
 
+    // Build hidden node info for the unhide UI (before filtering them out)
+    const hiddenNodesList = nodes
+      .filter(n => hiddenIds.has(n.id))
+      .map(n => ({ id: n.id, fullName: n.data?.fullName || n.data?.name || 'N/A', jobTitle: n.data?.jobTitle || '' }));
+
     const result = { 
       departmentInfo: department,
       immediateParentId: null, 
       nodes: nodes.filter(n => !hiddenIds.has(n.id)), 
       edges: edges.filter(e => !hiddenIds.has(e.source) && !hiddenIds.has(e.target)), 
-      config 
+      config,
+      hiddenNodes: hiddenNodesList,
     };
     await this.cacheManager.set(cacheKey, result, 60000); // 1 minute cache
     return result;

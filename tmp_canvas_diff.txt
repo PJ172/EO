@@ -1,0 +1,129 @@
+diff --git a/apps/web/src/components/org-chart/custom-nodes/employee-node.tsx b/apps/web/src/components/org-chart/custom-nodes/employee-node.tsx
+index 54a5d41..5dd6d40 100644
+--- a/apps/web/src/components/org-chart/custom-nodes/employee-node.tsx
++++ b/apps/web/src/components/org-chart/custom-nodes/employee-node.tsx
+@@ -180,12 +180,7 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
+                 <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-2xl ${tier === 'director' ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`} />
+             )}
+ 
+-            {/* Global Context Label */}
+-            {data.isGlobalContext && (
+-                <div className="absolute top-1 left-2 text-[8px] font-bold uppercase tracking-widest text-slate-400 z-50">
+-                    Cấp trên
+-                </div>
+-            )}
++
+ 
+             {/* Avatar */}
+             <div className="relative mb-4">
+diff --git a/apps/web/src/components/org-chart/org-chart-canvas.tsx b/apps/web/src/components/org-chart/org-chart-canvas.tsx
+index 2363dff..dc85c6a 100644
+--- a/apps/web/src/components/org-chart/org-chart-canvas.tsx
++++ b/apps/web/src/components/org-chart/org-chart-canvas.tsx
+@@ -18,7 +18,7 @@ import {
+     ConnectionLineType,
+ } from '@xyflow/react';
+ import '@xyflow/react/dist/style.css';
+-import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert } from 'lucide-react';
++import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+ import { cn } from '@/lib/utils';
+ import { apiClient } from '@/lib/api-client';
+ import { toast } from 'sonner';
+@@ -143,7 +143,7 @@ const getDescendantIds = (nodeId: string, edges: Edge[]): string[] => {
+ };
+ 
+ interface OrgChartCanvasProps {
+-    apiData: { nodes: any[]; edges: any[]; departmentInfo?: any; immediateParentId?: string | null; config?: any } | null;
++    apiData: { nodes: any[]; edges: any[]; departmentInfo?: any; immediateParentId?: string | null; config?: any; hiddenNodes?: Array<{id: string; fullName: string; jobTitle: string}> } | null;
+     isLoading: boolean;
+     onNodeClick?: (node: any) => void;
+     onNodeDoubleClick?: (node: any) => void;
+@@ -391,15 +391,17 @@ const OrgChartCanvasInner = ({
+         // Auto save hidden status
+         const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
+         try {
+-            await apiClient.post(`/organization/config/${chartKey}/hidden`, {
++            await apiClient.post(`/employees/org-chart/overrides/${chartKey}`, {
+                 // @ts-ignore
+                 hiddenNodeIds: Array.from(newSet)
+             });
+-            toast.success('Đã lưu cấu hình thu gọn/ẩn');
++            toast.success('Đã cập nhật hiển thị');
++            // Refetch chart data so hidden/unhidden nodes reflect properly
++            if (onOverridesChange) onOverridesChange();
+         } catch (error) {
+             toast.error('Lỗi khi lưu thiết kế');
+         }
+-    }, [apiData]);
++    }, [apiData, onOverridesChange]);
+ 
+     // We can remove saveOverrides completely now
+     const saveOverrides = async () => {};
+@@ -587,11 +589,20 @@ const OrgChartCanvasInner = ({
+ 
+             const visibleEdges = processedEdges.filter(e => !hiddenIds.has(e.source) && !hiddenIds.has(e.target));
+ 
++            // Separate nodes with saved positions vs. nodes at (0,0)
++            const savedPositionNodes = new Map<string, {x: number, y: number}>();
++            visibleNodes.forEach(n => {
++                if (n.position && (n.position.x !== 0 || n.position.y !== 0)) {
++                    savedPositionNodes.set(n.id, n.position);
++                }
++            });
++            const allAtOrigin = savedPositionNodes.size === 0;
++
+             const shouldLayout = layoutTrigger !== prevLayoutTrigger ||
+                 nodesep !== prevNodesep ||
+                 ranksep !== prevRanksep ||
+                 JSON.stringify(nodeDims) !== JSON.stringify(prevNodeDimsRef.current) ||
+-                (visibleNodes.length > 0 && visibleNodes.every(n => !n.position || (n.position.x === 0 && n.position.y === 0)));
++                (visibleNodes.length > 0 && allAtOrigin);
+ 
+             if (!mounted) return;
+ 
+@@ -642,7 +653,8 @@ const OrgChartCanvasInner = ({
+                         ...n,
+                         targetPosition: n.id.startsWith('section-') && !isHorizontal ? Position.Left : (isHorizontal ? Position.Left : Position.Top),
+                         sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+-                        position: positionMap.get(n.id)!,
++                        // Use saved position from API if available, otherwise use dagre-calculated position
++                        position: savedPositionNodes.get(n.id) ?? positionMap.get(n.id)!,
+                     }));
+ 
+                 // Filter edges to only include connected nodes
+@@ -902,6 +914,35 @@ const OrgChartCanvasInner = ({
+                     </AlertDialogContent>
+                 </AlertDialog>
+ 
++                {/* Hidden Nodes Unhide Panel */}
++                {apiData?.hiddenNodes && apiData.hiddenNodes.length > 0 && (
++                    <Panel position="top-left" className="mt-2 ml-2">
++                        <div className="bg-white/95 backdrop-blur-sm border border-amber-200 rounded-xl shadow-lg p-3 max-w-[260px]">
++                            <div className="flex items-center gap-2 mb-2">
++                                <EyeOff className="w-4 h-4 text-amber-600" />
++                                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Node đã ẩn ({apiData.hiddenNodes.length})</span>
++                            </div>
++                            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
++                                {apiData.hiddenNodes.map((hn) => (
++                                    <div key={hn.id} className="flex items-center justify-between gap-2 bg-amber-50 rounded-lg px-2.5 py-1.5 group hover:bg-amber-100 transition-colors">
++                                        <div className="min-w-0">
++                                            <p className="text-xs font-semibold text-slate-700 truncate">{hn.fullName}</p>
++                                            {hn.jobTitle && <p className="text-[10px] text-slate-500 truncate">{hn.jobTitle}</p>}
++                                        </div>
++                                        <button
++                                            onClick={() => onHideNode(hn.id)}
++                                            className="shrink-0 p-1 rounded-md hover:bg-emerald-100 text-slate-400 hover:text-emerald-600 transition-colors"
++                                            title="Hiện lại node này"
++                                        >
++                                            <Eye className="w-3.5 h-3.5" />
++                                        </button>
++                                    </div>
++                                ))}
++                            </div>
++                        </div>
++                    </Panel>
++                )}
++
+                 {/* Auto-saved configurations. Design Mode & Save Toolbar Removed as requested */}
+ 
+                 {/* Zoom indicator */}

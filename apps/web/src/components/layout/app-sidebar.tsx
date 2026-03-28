@@ -21,6 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarUrl } from "@/lib/avatar-utils";
 import { EmployeeAvatar } from "@/components/ui/employee-avatar";
+import { SunplastLogo, SunplastLogoIcon } from "@/components/ui/sunplast-logo";
 import { PermissionGate, usePermissionCheck } from "@/components/auth/permission-gate";
 import {
     DropdownMenu,
@@ -51,6 +52,8 @@ import {
     Trash2,
     CarFront,
     Ticket,
+    HardDrive,
+    BarChart3,
 } from "lucide-react";
 
 type MenuItem = {
@@ -157,18 +160,39 @@ const menuItems: MenuGroup[] = [
         title: "CNTT",
         items: [
             {
-                title: "IT Ticket",
-                url: "/cntt/it-ticket",
+                title: "Tổng quan",
+                url: "/cntt",
+                icon: LayoutDashboard,
+                permissions: ["ASSET_VIEW"],
+                code: "IT_DASHBOARD"
+            },
+            {
+                title: "Thiết bị",
+                url: "/cntt/hardware",
+                icon: Monitor,
+                permissions: ["ASSET_VIEW"],
+                code: "IT_ASSETS"
+            },
+            {
+                title: "Phần mềm",
+                url: "/cntt/software",
+                icon: HardDrive,
+                permissions: ["ASSET_VIEW"],
+                code: "IT_SOFTWARE"
+            },
+            {
+                title: "IT Helpdesk",
+                url: "/cntt/helpdesk",
                 icon: Ticket,
                 permissions: ["TICKET_VIEW"],
                 code: "TICKETS"
             },
             {
-                title: "Thiết bị CNTT",
-                url: "/cntt/it-assets",
-                icon: Monitor,
+                title: "Báo cáo",
+                url: "/cntt/reports",
+                icon: BarChart3,
                 permissions: ["ASSET_VIEW"],
-                code: "IT_ASSETS"
+                code: "IT_REPORTS"
             },
         ],
     },
@@ -235,16 +259,16 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/general/dashboard">
-                                <div className="flex aspect-square size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                                    <Building2 className="size-8" />
-                                </div>
-                                <div className="flex flex-col gap-0.5 leading-none">
-                                    <span className="font-semibold">eOffice</span>
-                                    <span className="text-xs text-sidebar-foreground/70">
-                                        Enterprise Office
+                            <Link href="/general/dashboard" className="flex flex-col !items-start !py-3">
+                                <div className="flex items-center gap-0">
+                                    <SunplastLogoIcon size={32} />
+                                    <span className="font-extrabold text-[16px] tracking-tight -ml-0.5" style={{ color: '#1B3A8C' }}>
+                                        plast
                                     </span>
                                 </div>
+                                <span className="text-[11px] font-semibold mt-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                    eOffice
+                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

@@ -61,7 +61,10 @@ export class ITAssetController {
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'assetType', required: false })
   @ApiQuery({ name: 'departmentId', required: false })
+  @ApiQuery({ name: 'location', required: false })
+  @ApiQuery({ name: 'condition', required: false })
   @ApiQuery({ name: 'isDeleted', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
@@ -69,7 +72,10 @@ export class ITAssetController {
     @Query('search') search?: string,
     @Query('categoryId') categoryId?: string,
     @Query('status') status?: string,
+    @Query('assetType') assetType?: string,
     @Query('departmentId') departmentId?: string,
+    @Query('location') location?: string,
+    @Query('condition') condition?: string,
     @Query('isDeleted') isDeleted?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -78,7 +84,10 @@ export class ITAssetController {
       search,
       categoryId,
       status,
+      assetType,
       departmentId,
+      location,
+      condition,
       isDeleted: isDeleted === 'true',
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -89,6 +98,21 @@ export class ITAssetController {
   @Permissions('ASSET_VIEW')
   getStatistics() {
     return this.itAssetService.getStatistics();
+  }
+
+  @Get('warranty-alerts')
+  @Permissions('ASSET_VIEW')
+  @ApiOperation({ summary: 'Get assets with warranties expiring soon' })
+  @ApiQuery({ name: 'days', required: false, description: 'Days ahead to check (default 90)' })
+  getWarrantyAlerts(@Query('days') days?: string) {
+    return this.itAssetService.getWarrantyAlerts(days ? parseInt(days) : 90);
+  }
+
+  @Get('dashboard-stats')
+  @Permissions('ASSET_VIEW')
+  @ApiOperation({ summary: 'Get comprehensive dashboard stats for IT module' })
+  getDashboardStats() {
+    return this.itAssetService.getDashboardStats();
   }
 
   @Get(':id')

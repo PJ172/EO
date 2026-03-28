@@ -17,6 +17,7 @@ export class CreateAssetCategoryDto {
 export class CreateITAssetDto {
   @ApiProperty() @IsString() name: string;
   @ApiProperty() @IsString() categoryId: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() assetType?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() brand?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() model?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() serialNumber?: string;
@@ -24,6 +25,9 @@ export class CreateITAssetDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() purchasePrice?: number;
   @ApiPropertyOptional() @IsOptional() @IsDateString() warrantyEndDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() location?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() ipAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() macAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() hostname?: string;
   @ApiPropertyOptional() @IsOptional() specifications?: any;
   @ApiPropertyOptional() @IsOptional() @IsString() note?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() departmentId?: string;
