@@ -49,23 +49,19 @@ async function main() {
         { code: 'LEAVE_MANAGE', description: 'Manage all leave requests', module: 'LEAVE' },
 
         // Room Booking
-        { code: 'ROOM_VIEW', description: 'View meeting rooms', module: 'BOOKING' },
-        { code: 'ROOM_BOOK', description: 'Book meeting rooms', module: 'BOOKING' },
-        { code: 'ROOM_MANAGE', description: 'Manage meeting rooms', module: 'BOOKING' },
-        { code: 'ROOM_CREATE', description: 'Create new meeting room', module: 'BOOKING' },
-        { code: 'ROOM_UPDATE', description: 'Update meeting room', module: 'BOOKING' },
-        { code: 'ROOM_DELETE', description: 'Delete meeting room', module: 'BOOKING' },
+        { code: 'ROOM_VIEW', description: 'View meeting rooms', module: 'MEETING' },
+        { code: 'ROOM_BOOK', description: 'Book meeting rooms', module: 'MEETING' },
+        { code: 'ROOM_MANAGE', description: 'Manage meeting rooms', module: 'MEETING' },
+        { code: 'ROOM_CREATE', description: 'Create new meeting room', module: 'MEETING' },
+        { code: 'ROOM_UPDATE', description: 'Update meeting room', module: 'MEETING' },
+        { code: 'ROOM_DELETE', description: 'Delete meeting room', module: 'MEETING' },
 
-        // Projects & Tasks
-        { code: 'PROJECT_READ', description: 'View projects', module: 'PROJECT' },
-        { code: 'PROJECT_CREATE', description: 'Create projects', module: 'PROJECT' },
-        { code: 'PROJECT_UPDATE', description: 'Update projects', module: 'PROJECT' },
-        { code: 'PROJECT_DELETE', description: 'Delete projects', module: 'PROJECT' },
-        { code: 'TASK_READ', description: 'View tasks', module: 'PROJECT' },
-        { code: 'TASK_CREATE', description: 'Create tasks', module: 'PROJECT' },
-        { code: 'TASK_UPDATE', description: 'Update tasks', module: 'PROJECT' },
-        { code: 'TASK_DELETE', description: 'Delete tasks', module: 'PROJECT' },
-        { code: 'TASK_ASSIGN', description: 'Assign tasks to employees', module: 'PROJECT' },
+        // Tasks
+        { code: 'TASK_READ', description: 'View tasks', module: 'TASKS' },
+        { code: 'TASK_CREATE', description: 'Create tasks', module: 'TASKS' },
+        { code: 'TASK_UPDATE', description: 'Update tasks', module: 'TASKS' },
+        { code: 'TASK_DELETE', description: 'Delete tasks', module: 'TASKS' },
+        { code: 'TASK_ASSIGN', description: 'Assign tasks to employees', module: 'TASKS' },
 
         // KPI
         { code: 'KPI_READ', description: 'View KPI', module: 'KPI' },
@@ -112,8 +108,8 @@ async function main() {
         { code: 'MEAL_MANAGE', description: 'Manage meal sessions, menu, view stats', module: 'MEAL' },
 
         // IT Asset Management
-        { code: 'ASSET_VIEW', description: 'View IT assets', module: 'ASSET' },
-        { code: 'ASSET_MANAGE', description: 'Manage IT assets, assign, maintenance', module: 'ASSET' },
+        { code: 'ASSET_VIEW', description: 'View IT assets', module: 'IT_ASSETS' },
+        { code: 'ASSET_MANAGE', description: 'Manage IT assets, assign, maintenance', module: 'IT_ASSETS' },
 
         // IT Ticketing
         { code: 'TICKET_VIEW', description: 'View tickets', module: 'TICKET' },
@@ -132,6 +128,37 @@ async function main() {
         });
     }
     console.log(`✅ Created ${permissions.length} permissions`);
+
+    // ========================================
+    // Migrate stale module codes
+    // ========================================
+    const moduleCodeMigrations = [
+        { from: 'BOOKING', to: 'MEETING' },
+        { from: 'PROJECT', to: 'TASKS' },
+        { from: 'ASSET', to: 'IT_ASSETS' },
+    ];
+    for (const { from, to } of moduleCodeMigrations) {
+        const updated = await prisma.permission.updateMany({
+            where: { module: from },
+            data: { module: to },
+        });
+        if (updated.count > 0) console.log(`  🔄 Permission module: ${from} → ${to} (${updated.count} rows)`);
+    }
+
+    // Also migrate ModuleVisibilityConfig codes
+    const visibilityMigrations = [
+        { from: 'BOOKINGS', to: 'MEETING' },
+        { from: 'TICKETS', to: 'IT_TICKETS' },
+        { from: 'ASSET', to: 'IT_ASSETS' },
+    ];
+    for (const { from, to } of visibilityMigrations) {
+        const updated = await prisma.$executeRawUnsafe(
+            `UPDATE module_visibility_configs SET module_code = $1 WHERE module_code = $2`,
+            to, from
+        );
+        if (updated > 0) console.log(`  🔄 ModuleVisibility: ${from} → ${to} (${updated} rows)`);
+    }
+    console.log('✅ Migrated stale module codes');
 
     // ========================================
     // Seed Meal Sessions

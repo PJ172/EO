@@ -119,15 +119,15 @@ export function useAssignedToMe() {
 }
 
 export function useTicketStatistics() {
-    return useQuery({ queryKey: ticketKeys.statistics(), queryFn: fetchStatistics });
+    return useQuery({ queryKey: ticketKeys.statistics(), queryFn: fetchStatistics, staleTime: 3 * 60 * 1000 });
 }
 
 export function useTicketCategories() {
-    return useQuery({ queryKey: ticketKeys.categories(), queryFn: fetchCategories });
+    return useQuery({ queryKey: ticketKeys.categories(), queryFn: fetchCategories, staleTime: 5 * 60 * 1000 });
 }
 
 export function usePendingApprovals() {
-    return useQuery({ queryKey: ticketKeys.pendingApprovals(), queryFn: fetchPendingApprovals });
+    return useQuery({ queryKey: ticketKeys.pendingApprovals(), queryFn: fetchPendingApprovals, staleTime: 60 * 1000 });
 }
 
 // Hooks — Mutations

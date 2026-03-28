@@ -84,60 +84,75 @@ export function CommandMenu() {
             <CommandList>
                 <CommandEmpty>Không tìm thấy kết quả.</CommandEmpty>
                 <CommandGroup heading="Liên kết nhanh">
-                    <CommandItem onSelect={() => runCommand(() => router.push("/dashboard"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/general/dashboard"))}>
                         <LayoutDashboard className="mr-2 h-4 w-4" />
-                        <span>Dashboard</span>
+                        <span>Tổng quan</span>
                     </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/org-chart"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/hr/org-chart"))}>
                         <FolderKanban className="mr-2 h-4 w-4" />
                         <span>Sơ đồ tổ chức</span>
                     </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/employees"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/hr/employees"))}>
                         <Users className="mr-2 h-4 w-4" />
                         <span>Nhân viên</span>
                     </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/factories"))}>
-                        <Factory className="mr-2 h-4 w-4" />
-                        <span>Nhà máy</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/companies"))}>
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span>Công ty</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/divisions"))}>
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span>Khối (Division)</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/departments"))}>
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span>Phòng ban</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/sections"))}>
-                        <Building2 className="mr-2 h-4 w-4" />
-                        <span>Bộ phận</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/job-titles"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/hr/tasks"))}>
                         <Briefcase className="mr-2 h-4 w-4" />
-                        <span>Chức danh</span>
+                        <span>Công việc</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/iso/documents"))}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>Tài liệu</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/general/news"))}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>Tin tức</span>
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />
-                <CommandGroup heading="Quy trình & Khác">
-                    <CommandItem onSelect={() => runCommand(() => router.push("/requests"))}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        <span>Tờ trình</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/leaves"))}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        <span>Nghỉ phép</span>
-                    </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/bookings"))}>
+                <CommandGroup heading="Hành chính & CNTT">
+                    <CommandItem onSelect={() => runCommand(() => router.push("/ga/meetings"))}>
                         <DoorOpen className="mr-2 h-4 w-4" />
                         <span>Phòng họp</span>
                     </CommandItem>
-                    <CommandItem onSelect={() => runCommand(() => router.push("/cars"))}>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/ga/cars"))}>
                         <Car className="mr-2 h-4 w-4" />
                         <span>Đặt xe</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/cntt/it-ticket"))}>
+                        <Briefcase className="mr-2 h-4 w-4" />
+                        <span>IT Ticket</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/cntt/it-assets"))}>
+                        <Briefcase className="mr-2 h-4 w-4" />
+                        <span>Thiết bị CNTT</span>
+                    </CommandItem>
+                </CommandGroup>
+                <CommandSeparator />
+                <CommandGroup heading="Cài đặt">
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/companies"))}>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span>Công ty</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/factories"))}>
+                        <Factory className="mr-2 h-4 w-4" />
+                        <span>Nhà máy</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/departments"))}>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span>Phòng ban</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/divisions"))}>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span>Khối</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/sections"))}>
+                        <Building2 className="mr-2 h-4 w-4" />
+                        <span>Bộ phận</span>
+                    </CommandItem>
+                    <CommandItem onSelect={() => runCommand(() => router.push("/settings/job-titles"))}>
+                        <Briefcase className="mr-2 h-4 w-4" />
+                        <span>Chức danh</span>
                     </CommandItem>
                 </CommandGroup>
                 <CommandSeparator />

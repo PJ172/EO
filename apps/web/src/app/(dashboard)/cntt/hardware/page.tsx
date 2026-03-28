@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,12 +72,13 @@ export default function HardwareInventoryPage() {
   const [editAsset, setEditAsset] = useState<ITAsset | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
 
-  // Debounced search
+  // Debounced search (fix: proper cleanup with useRef)
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const searchTimeout = useCallback((value: string) => {
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
-    const timer = setTimeout(() => setDebouncedSearch(value), 300);
-    return () => clearTimeout(timer);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => setDebouncedSearch(value), 300);
   }, []);
 
   // Computed filters
@@ -92,10 +93,12 @@ export default function HardwareInventoryPage() {
   const { data: stats } = useAssetStatistics();
   const { data: categories = [] } = useAssetCategories();
   const { data: assetDetail, isLoading: isLoadingDetail } = useHardwareAsset(selectedId);
+  // Lazy: only fetch employees when assign dialog opens
   const { data: employeesData } = useQuery({
     queryKey: ['employees-mini'],
     queryFn: () => apiClient.get('/employees', { params: { limit: 1000 } }).then(r => r.data),
     staleTime: 5 * 60 * 1000,
+    enabled: !!assignOpen,
   });
   const { data: departmentsData } = useQuery({
     queryKey: ['departments-mini'],
@@ -236,7 +239,7 @@ export default function HardwareInventoryPage() {
             <Input
               placeholder="Tìm theo mã, tên, S/N, IP..."
               value={search}
-              onChange={(e) => searchTimeout(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9 h-9 text-sm"
             />
           </div>
@@ -733,10 +736,11 @@ function AssetFormDialog({
   isLoading: boolean;
 }) {
   const [form, setForm] = useState<any>({});
+  const [activeSection, setActiveSection] = useState(0);
 
-  // Reset form when asset changes
   const initForm = useCallback(() => {
     if (asset) {
+      const specs = (typeof asset.specifications === 'object' && asset.specifications) || {};
       setForm({
         name: asset.name,
         categoryId: asset.categoryId,
@@ -750,31 +754,52 @@ function AssetFormDialog({
         location: asset.location || '',
         ipAddress: asset.ipAddress || '',
         macAddress: asset.macAddress || '',
+        macAddress2: (specs as any).macAddress2 || '',
         hostname: asset.hostname || '',
         departmentId: asset.departmentId || '',
         note: asset.note || '',
         status: asset.status || 'AVAILABLE',
         condition: asset.condition || 'GOOD',
+        cpu: (specs as any).cpu || '',
+        ram: (specs as any).ram || '',
+        storage: (specs as any).storage || '',
+        os: (specs as any).os || '',
+        displaySize: (specs as any).displaySize || '',
+        gpu: (specs as any).gpu || '',
       });
     } else {
       setForm({
         name: '', categoryId: '', assetType: '', brand: '', model: '',
         serialNumber: '', purchaseDate: '', purchasePrice: '', warrantyEndDate: '',
-        location: '', ipAddress: '', macAddress: '', hostname: '',
+        location: '', ipAddress: '', macAddress: '', macAddress2: '', hostname: '',
         departmentId: '', note: '', status: 'AVAILABLE', condition: 'GOOD',
+        cpu: '', ram: '', storage: '', os: '', displaySize: '', gpu: '',
       });
     }
+    setActiveSection(0);
   }, [asset]);
 
-  // Reset on open
-  useMemo(() => { if (open) initForm(); }, [open, initForm]);
+  useEffect(() => { if (open) initForm(); }, [open, initForm]);
 
   const handleSubmit = () => {
     if (!form.name || !form.categoryId) {
       toast.error('Vui lòng nhập tên và chọn danh mục');
       return;
     }
-    const data: any = { ...form };
+    const { cpu, ram, storage, os, displaySize, gpu, macAddress2, ...rest } = form;
+    const data: any = { ...rest };
+
+    // Pack hardware specs into specifications JSON
+    const specs: any = {};
+    if (cpu) specs.cpu = cpu;
+    if (ram) specs.ram = ram;
+    if (storage) specs.storage = storage;
+    if (os) specs.os = os;
+    if (displaySize) specs.displaySize = displaySize;
+    if (gpu) specs.gpu = gpu;
+    if (macAddress2) specs.macAddress2 = macAddress2;
+    if (Object.keys(specs).length > 0) data.specifications = specs;
+
     if (data.purchasePrice) data.purchasePrice = parseInt(data.purchasePrice);
     else delete data.purchasePrice;
     if (!data.purchaseDate) delete data.purchaseDate;
@@ -785,152 +810,386 @@ function AssetFormDialog({
     onSubmit(data);
   };
 
+  const f = (key: string) => ({
+    value: form[key] || '',
+    onChange: (e: any) => setForm((prev: any) => ({ ...prev, [key]: e.target.value })),
+  });
+
+  const sections = [
+    { label: 'Cơ bản', icon: Package },
+    { label: 'Mạng', icon: Network },
+    { label: 'Phần cứng', icon: Cpu },
+    { label: 'Mua & BH', icon: Calendar },
+  ];
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{asset ? 'Chỉnh sửa thiết bị' : 'Thêm thiết bị mới'}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {/* Row 1: Name + Type */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Tên thiết bị *</Label>
-              <Input value={form.name || ''} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} placeholder="VD: Dell Latitude 5530" />
-            </div>
-            <div>
-              <Label>Loại thiết bị</Label>
-              <Select value={form.assetType || ''} onValueChange={v => setForm((f: any) => ({ ...f, assetType: v }))}>
-                <SelectTrigger><SelectValue placeholder="Chọn loại" /></SelectTrigger>
-                <SelectContent>
-                  {ASSET_TYPES.filter(t => t.value !== 'ALL').map(t => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Row 2: Category + Department */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Danh mục *</Label>
-              <Select value={form.categoryId || ''} onValueChange={v => setForm((f: any) => ({ ...f, categoryId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
-                <SelectContent>
-                  {categories.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.icon || '📦'} {c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Phòng ban</Label>
-              <Select value={form.departmentId || ''} onValueChange={v => setForm((f: any) => ({ ...f, departmentId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Chọn phòng ban" /></SelectTrigger>
-                <SelectContent>
-                  {departments.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Row 3: Brand + Model + Serial */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Hãng</Label>
-              <Input value={form.brand || ''} onChange={e => setForm((f: any) => ({ ...f, brand: e.target.value }))} placeholder="Dell, HP, Cisco..." />
-            </div>
-            <div>
-              <Label>Model</Label>
-              <Input value={form.model || ''} onChange={e => setForm((f: any) => ({ ...f, model: e.target.value }))} placeholder="Latitude 5530" />
-            </div>
-            <div>
-              <Label>Serial Number</Label>
-              <Input value={form.serialNumber || ''} onChange={e => setForm((f: any) => ({ ...f, serialNumber: e.target.value }))} placeholder="S/N" />
-            </div>
-          </div>
-
-          {/* Row 4: Network */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Hostname</Label>
-              <Input value={form.hostname || ''} onChange={e => setForm((f: any) => ({ ...f, hostname: e.target.value }))} placeholder="PC-001" />
-            </div>
-            <div>
-              <Label>IP Address</Label>
-              <Input value={form.ipAddress || ''} onChange={e => setForm((f: any) => ({ ...f, ipAddress: e.target.value }))} placeholder="192.168.1.100" />
-            </div>
-            <div>
-              <Label>MAC Address</Label>
-              <Input value={form.macAddress || ''} onChange={e => setForm((f: any) => ({ ...f, macAddress: e.target.value }))} placeholder="AA:BB:CC:DD:EE:FF" />
-            </div>
-          </div>
-
-          {/* Row 5: Purchase + Warranty */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Ngày mua</Label>
-              <Input type="date" value={form.purchaseDate || ''} onChange={e => setForm((f: any) => ({ ...f, purchaseDate: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Giá mua (VNĐ)</Label>
-              <Input type="number" value={form.purchasePrice || ''} onChange={e => setForm((f: any) => ({ ...f, purchasePrice: e.target.value }))} placeholder="0" />
-            </div>
-            <div>
-              <Label>Bảo hành đến</Label>
-              <Input type="date" value={form.warrantyEndDate || ''} onChange={e => setForm((f: any) => ({ ...f, warrantyEndDate: e.target.value }))} />
-            </div>
-          </div>
-
-          {/* Row 6: Location + Status + Condition */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Vị trí</Label>
-              <Input value={form.location || ''} onChange={e => setForm((f: any) => ({ ...f, location: e.target.value }))} placeholder="Tầng 2 - Phòng IT" />
-            </div>
-            {asset && (
-              <>
-                <div>
-                  <Label>Trạng thái</Label>
-                  <Select value={form.status || 'AVAILABLE'} onValueChange={v => setForm((f: any) => ({ ...f, status: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:w-[55vw] sm:max-w-[720px] p-0 flex flex-col overflow-hidden [&>button]:hidden">
+        {/* Header */}
+        <div className="relative overflow-hidden px-6 pt-5 pb-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 shrink-0">
+          <div className="absolute inset-0 opacity-10"
+            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 50%, #06b6d4 0%, transparent 50%)' }}
+          />
+          <SheetHeader className="relative z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-white/10 backdrop-blur-sm ring-1 ring-white/20">
+                  {asset
+                    ? <Edit className="h-5 w-5 text-sky-300" />
+                    : <Plus className="h-5 w-5 text-emerald-300" />
+                  }
                 </div>
                 <div>
-                  <Label>Tình trạng</Label>
-                  <Select value={form.condition || 'GOOD'} onValueChange={v => setForm((f: any) => ({ ...f, condition: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(CONDITION_CONFIG).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v.emoji} {v.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SheetTitle className="text-lg text-white font-semibold tracking-tight">
+                    {asset ? 'Chỉnh sửa thiết bị' : 'Thêm thiết bị mới'}
+                  </SheetTitle>
+                  <SheetDescription className="text-xs text-slate-400 mt-0.5">
+                    {asset ? `Mã: ${asset.code}` : 'Nhập thông tin thiết bị CNTT'}
+                  </SheetDescription>
                 </div>
-              </>
+              </div>
+              <button onClick={() => onOpenChange(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </SheetHeader>
+
+          {/* Section Tabs */}
+          <div className="relative z-10 flex gap-1 mt-4">
+            {sections.map((s, i) => {
+              const Icon = s.icon;
+              const isActive = activeSection === i;
+              return (
+                <button key={i} onClick={() => setActiveSection(i)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    isActive
+                      ? 'bg-white/20 text-white shadow-sm backdrop-blur-sm ring-1 ring-white/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Form body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-4">
+
+            {/* === SECTION 0: CƠ BẢN === */}
+            {activeSection === 0 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Tag className="h-3 w-3 text-sky-500" /> Tên thiết bị <span className="text-rose-500">*</span>
+                    </Label>
+                    <Input {...f('name')} placeholder="Dell Latitude 5540" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Package className="h-3 w-3 text-amber-500" /> Loại thiết bị
+                    </Label>
+                    <Select value={form.assetType || undefined} onValueChange={v => setForm((f: any) => ({ ...f, assetType: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn loại" /></SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4} className="z-[9999]">
+                        {ASSET_TYPES.filter(t => t.value !== 'ALL').map(t => {
+                          const Icon = t.icon;
+                          return <SelectItem key={t.value} value={t.value}><span className="flex items-center gap-2"><Icon className={`h-3.5 w-3.5 ${t.color}`} />{t.label}</span></SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">Danh mục <span className="text-rose-500">*</span></Label>
+                    <Select value={form.categoryId || undefined} onValueChange={v => setForm((f: any) => ({ ...f, categoryId: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4} className="z-[9999]">
+                        {categories.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.icon || '📦'} {c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 text-violet-500" /> Phòng ban
+                    </Label>
+                    <Select value={form.departmentId || undefined} onValueChange={v => setForm((f: any) => ({ ...f, departmentId: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Chọn phòng ban" /></SelectTrigger>
+                      <SelectContent position="popper" sideOffset={4} className="z-[9999]">
+                        {departments.map((d: any) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">Hãng sản xuất</Label>
+                    <Input {...f('brand')} placeholder="Dell, HP, Cisco..." className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">Model</Label>
+                    <Input {...f('model')} placeholder="Latitude 5540" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <QrCode className="h-3 w-3 text-teal-500" /> Serial Number
+                    </Label>
+                    <Input {...f('serialNumber')} placeholder="S/N" className="mt-1 font-mono text-sm placeholder:text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3 text-rose-500" /> Vị trí
+                    </Label>
+                    <Input {...f('location')} placeholder="Tầng 2 - Phòng IT" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  {asset && (
+                    <>
+                      <div>
+                        <Label className="text-xs font-semibold text-slate-600">Trạng thái</Label>
+                        <Select value={form.status || 'AVAILABLE'} onValueChange={v => setForm((f: any) => ({ ...f, status: v }))}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent position="popper" sideOffset={4} className="z-[9999]">
+                            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                              <SelectItem key={k} value={k}><span className={v.color}>{v.label}</span></SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold text-slate-600">Tình trạng</Label>
+                        <Select value={form.condition || 'GOOD'} onValueChange={v => setForm((f: any) => ({ ...f, condition: v }))}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent position="popper" sideOffset={4} className="z-[9999]">
+                            {Object.entries(CONDITION_CONFIG).map(([k, v]) => (
+                              <SelectItem key={k} value={k}>{v.emoji} {v.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold text-slate-600">Ghi chú</Label>
+                  <Textarea {...f('note')} rows={2} placeholder="Ghi chú thêm..." className="mt-1 resize-none placeholder:text-slate-300" />
+                </div>
+              </div>
+            )}
+
+            {/* === SECTION 1: MẠNG & KẾT NỐI === */}
+            {activeSection === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                <div className="flex items-center gap-2 pb-2 border-b border-dashed">
+                  <div className="p-1.5 rounded-lg bg-sky-50"><Network className="h-4 w-4 text-sky-600" /></div>
+                  <p className="text-sm font-semibold text-slate-700">Thông tin mạng & kết nối</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Monitor className="h-3 w-3 text-blue-500" /> Hostname
+                    </Label>
+                    <Input {...f('hostname')} placeholder="PC-IT-001" className="mt-1 font-mono text-sm placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Network className="h-3 w-3 text-emerald-500" /> IP Address
+                    </Label>
+                    <Input {...f('ipAddress')} placeholder="192.168.1.100" className="mt-1 font-mono text-sm placeholder:text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Wifi className="h-3 w-3 text-amber-500" /> MAC Address 1
+                      <span className="text-[10px] text-slate-400 font-normal">(Ethernet/LAN)</span>
+                    </Label>
+                    <Input value={form.macAddress || ''} placeholder="AA:BB:CC:DD:EE:FF" className="mt-1 font-mono text-sm uppercase placeholder:text-slate-300 placeholder:normal-case"
+                      onChange={e => {
+                        const v = e.target.value.replace(/[^a-fA-F0-9:]/g, '').toUpperCase();
+                        setForm((prev: any) => ({ ...prev, macAddress: v }));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Wifi className="h-3 w-3 text-teal-500" /> MAC Address 2
+                      <span className="text-[10px] text-slate-400 font-normal">(Wi-Fi/Wireless)</span>
+                    </Label>
+                    <Input value={form.macAddress2 || ''} placeholder="AA:BB:CC:DD:EE:FF" className="mt-1 font-mono text-sm uppercase placeholder:text-slate-300 placeholder:normal-case"
+                      onChange={e => {
+                        const v = e.target.value.replace(/[^a-fA-F0-9:]/g, '').toUpperCase();
+                        setForm((prev: any) => ({ ...prev, macAddress2: v }));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-sky-50/50 border border-sky-100">
+                  <p className="text-[11px] text-sky-700 flex items-center gap-1.5">
+                    💡 <b>Mẹo:</b> MAC Address 1 thường là cổng Ethernet (RJ45), MAC Address 2 là card Wi-Fi.
+                    Mỗi card mạng có một địa chỉ MAC riêng biệt.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* === SECTION 2: PHẦN CỨNG === */}
+            {activeSection === 2 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                <div className="flex items-center gap-2 pb-2 border-b border-dashed">
+                  <div className="p-1.5 rounded-lg bg-violet-50"><Cpu className="h-4 w-4 text-violet-600" /></div>
+                  <p className="text-sm font-semibold text-slate-700">Thông số phần cứng</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Cpu className="h-3 w-3 text-violet-500" /> CPU / Bộ xử lý
+                    </Label>
+                    <Input {...f('cpu')} placeholder="Intel Core i7-1365U" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <MemoryStick className="h-3 w-3 text-sky-500" /> RAM
+                    </Label>
+                    <Input {...f('ram')} placeholder="16 GB DDR5" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <HardDrive className="h-3 w-3 text-emerald-500" /> Ổ cứng / SSD
+                    </Label>
+                    <Input {...f('storage')} placeholder="512 GB NVMe SSD" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Monitor className="h-3 w-3 text-cyan-500" /> Hệ điều hành
+                    </Label>
+                    <Input {...f('os')} placeholder="Windows 11 Pro" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">Kích thước màn hình</Label>
+                    <Input {...f('displaySize')} placeholder="15.6 inch FHD" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">GPU / Card đồ họa</Label>
+                    <Input {...f('gpu')} placeholder="Intel Iris Xe" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-violet-50/50 border border-violet-100">
+                  <p className="text-[11px] text-violet-700 flex items-center gap-1.5">
+                    💡 <b>Tham khảo nhanh:</b> Nhấn <kbd className="px-1 py-0.5 text-[10px] bg-white rounded border">Win + Pause</kbd> để xem thông tin hệ thống,
+                    hoặc chạy <kbd className="px-1 py-0.5 text-[10px] bg-white rounded border font-mono">msinfo32</kbd> để có chi tiết đầy đủ.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* === SECTION 3: MUA SẮM & BẢO HÀNH === */}
+            {activeSection === 3 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
+                <div className="flex items-center gap-2 pb-2 border-b border-dashed">
+                  <div className="p-1.5 rounded-lg bg-amber-50"><Shield className="h-4 w-4 text-amber-600" /></div>
+                  <p className="text-sm font-semibold text-slate-700">Thông tin mua sắm & bảo hành</p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 text-blue-500" /> Ngày mua
+                    </Label>
+                    <Input type="date" {...f('purchaseDate')} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600">Giá mua (VNĐ)</Label>
+                    <Input type="number" {...f('purchasePrice')} placeholder="0" className="mt-1 placeholder:text-slate-300" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                      <Shield className="h-3 w-3 text-emerald-500" /> Bảo hành đến
+                    </Label>
+                    <Input type="date" {...f('warrantyEndDate')} className="mt-1" />
+                  </div>
+                </div>
+
+                {form.warrantyEndDate && (
+                  <div className={`p-3 rounded-lg border ${
+                    new Date(form.warrantyEndDate) > new Date()
+                      ? 'bg-emerald-50/50 border-emerald-200'
+                      : 'bg-rose-50/50 border-rose-200'
+                  }`}>
+                    <p className={`text-[11px] font-semibold flex items-center gap-1.5 ${
+                      new Date(form.warrantyEndDate) > new Date() ? 'text-emerald-700' : 'text-rose-700'
+                    }`}>
+                      {new Date(form.warrantyEndDate) > new Date()
+                        ? <>✅ Còn bảo hành — hết hạn {new Date(form.warrantyEndDate).toLocaleDateString('vi-VN')}</>
+                        : <>⚠️ Hết bảo hành từ {new Date(form.warrantyEndDate).toLocaleDateString('vi-VN')}</>
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          {/* Note */}
-          <div>
-            <Label>Ghi chú</Label>
-            <Textarea value={form.note || ''} onChange={e => setForm((f: any) => ({ ...f, note: e.target.value }))} rows={2} placeholder="Ghi chú thêm..." />
-          </div>
-
-          <Button onClick={handleSubmit} disabled={isLoading} className="w-full bg-gradient-to-r from-sky-600 to-cyan-600 text-white hover:from-sky-700 hover:to-cyan-700">
-            {isLoading ? 'Đang lưu...' : (asset ? 'Cập nhật' : 'Thêm thiết bị')}
-          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Footer — sticky */}
+        <div className="px-6 py-3 border-t bg-slate-50/80 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex gap-1">
+            {sections.map((_, i) => (
+              <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === activeSection ? 'w-6 bg-sky-500' : 'w-1.5 bg-slate-300'
+              }`} />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {activeSection > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setActiveSection(p => p - 1)}>
+                ← Quay lại
+              </Button>
+            )}
+            {activeSection < 3 ? (
+              <Button size="sm" onClick={() => setActiveSection(p => p + 1)}
+                className="bg-slate-800 hover:bg-slate-700 text-white"
+              >
+                Tiếp theo →
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} disabled={isLoading} size="sm"
+                className="bg-gradient-to-r from-sky-600 to-cyan-600 text-white hover:from-sky-700 hover:to-cyan-700 shadow-md shadow-sky-200/50 min-w-[120px]"
+              >
+                {isLoading ? 'Đang lưu...' : (asset ? '✓ Cập nhật' : '✓ Thêm thiết bị')}
+              </Button>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

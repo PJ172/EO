@@ -14,7 +14,7 @@ import {
     Laptop, Printer, Wifi, Camera, Loader2, FileDown, Calendar,
     Activity, Zap, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
-import { useAssetStatistics, useDashboardStats, useWarrantyAlerts } from '@/services/hardware.service';
+import { useDashboardSummary } from '@/services/hardware.service';
 import { useTicketStatistics } from '@/services/ticket.service';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -137,46 +137,47 @@ const PRIORITY_COLORS: Record<string, string> = { URGENT: '#ef4444', HIGH: '#f97
 export default function ReportsPage() {
     const [period, setPeriod] = useState('all');
 
-    const { data: assetStats, isLoading: assetLoading } = useAssetStatistics();
-    const { data: dashStats } = useDashboardStats();
+    // 1 API call instead of 3 (statistics + dashboard-stats + warranty-alerts)
+    const { data: summary, isLoading: assetLoading } = useDashboardSummary();
     const { data: ticketStats, isLoading: ticketLoading } = useTicketStatistics();
-    const { data: warrantyAlerts } = useWarrantyAlerts(90);
 
     const isLoading = assetLoading || ticketLoading;
 
     // Derived data for charts
     const hardwareByStatus = useMemo(() =>
-        (assetStats?.byStatus || []).map((s: any) => ({
+        (summary?.byStatus || []).map((s: any) => ({
             label: STATUS_LABELS[s.status] || s.status,
             value: s.count,
             color: STATUS_COLORS[s.status] || '#94a3b8',
-        })), [assetStats]);
+        })), [summary]);
 
     const hardwareByType = useMemo(() =>
-        (assetStats?.byAssetType || dashStats?.byAssetType || []).map((t: any) => ({
+        (summary?.byAssetType || []).map((t: any) => ({
             label: ASSET_TYPE_LABELS[t.assetType || t.type] || t.assetType || t.type || 'Khác',
             value: t.count,
-        })), [assetStats, dashStats]);
+        })), [summary]);
 
     const hardwareByCategory = useMemo(() =>
-        (assetStats?.byCategory || []).map((c: any) => ({
+        (summary?.byCategory || []).map((c: any) => ({
             label: c.category || 'N/A',
             value: c.count,
-        })), [assetStats]);
+        })), [summary]);
 
     const hardwareByDept = useMemo(() =>
-        (dashStats?.byDepartment || []).map((d: any) => ({
+        (summary?.byDepartment || []).map((d: any) => ({
             label: d.department || 'N/A',
             value: d.count,
         })).sort((a: any, b: any) => b.value - a.value).slice(0, 10),
-    [dashStats]);
+    [summary]);
 
     const hardwareByCondition = useMemo(() =>
-        (dashStats?.byCondition || []).map((c: any) => ({
+        (summary?.byCondition || []).map((c: any) => ({
             label: c.condition === 'GOOD' ? 'Tốt' : c.condition === 'FAIR' ? 'Bình thường' : c.condition === 'POOR' ? 'Kém' : c.condition || 'N/A',
             value: c.count,
             color: c.condition === 'GOOD' ? '#22c55e' : c.condition === 'FAIR' ? '#f59e0b' : '#ef4444',
-        })), [dashStats]);
+        })), [summary]);
+
+    const warrantyAlerts = summary?.warrantyAlertsList || [];
 
     const ticketByStatus = useMemo(() =>
         (ticketStats?.byStatus || []).map((s: any) => ({
@@ -232,12 +233,12 @@ export default function ReportsPage() {
                     <div className="space-y-4 pb-4">
                         {/* KPI Overview Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 animate-in fade-in slide-in-from-top-4 duration-500 delay-100">
-                            <StatMiniCard icon={Monitor} label="Tổng thiết bị" value={assetStats?.total || dashStats?.total || 0} color="bg-gradient-to-br from-blue-500 to-blue-600" />
+                            <StatMiniCard icon={Monitor} label="Tổng thiết bị" value={summary?.total || 0} color="bg-gradient-to-br from-blue-500 to-blue-600" />
                             <StatMiniCard icon={HardDrive} label="Phần mềm" value={ticketStats?.total ? '—' : '—'} color="bg-gradient-to-br from-emerald-500 to-teal-600" />
                             <StatMiniCard icon={Ticket} label="Tổng ticket" value={ticketStats?.total || 0} color="bg-gradient-to-br from-amber-500 to-orange-600" />
                             <StatMiniCard icon={Activity} label="TB xử lý" value={`${ticketStats?.avgResolutionHours || 0}h`} color="bg-gradient-to-br from-indigo-500 to-blue-600" />
                             <StatMiniCard icon={Shield} label="SLA đạt" value={`${ticketStats?.slaCompliancePercent || 100}%`} changeType={(ticketStats?.slaCompliancePercent || 100) >= 90 ? 'up' : 'down'} color="bg-gradient-to-br from-cyan-500 to-teal-600" />
-                            <StatMiniCard icon={AlertTriangle} label="Cảnh báo BH" value={warrantyAlerts?.length || dashStats?.warrantyAlerts || 0} changeType={(warrantyAlerts?.length || 0) > 0 ? 'down' : 'neutral'} color="bg-gradient-to-br from-red-500 to-rose-600" />
+                            <StatMiniCard icon={AlertTriangle} label="Cảnh báo BH" value={summary?.warrantyAlerts || 0} changeType={(summary?.warrantyAlerts || 0) > 0 ? 'down' : 'neutral'} color="bg-gradient-to-br from-red-500 to-rose-600" />
                         </div>
 
                         {/* Tabs */}

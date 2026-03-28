@@ -133,7 +133,7 @@ const menuItems: MenuGroup[] = [
                 url: "/ga/meetings",
                 icon: DoorOpen,
                 permissions: ["ROOM_VIEW"],
-                code: "BOOKINGS"
+                code: "MEETING"
             },
             {
                 title: "Đặt xe",
@@ -185,7 +185,7 @@ const menuItems: MenuGroup[] = [
                 url: "/cntt/helpdesk",
                 icon: Ticket,
                 permissions: ["TICKET_VIEW"],
-                code: "TICKETS"
+                code: "IT_TICKETS"
             },
             {
                 title: "Báo cáo",
@@ -196,18 +196,7 @@ const menuItems: MenuGroup[] = [
             },
         ],
     },
-    {
-        title: "Quy trình",
-        items: [
-            {
-                title: "Quy trình IT Ticket",
-                url: "/workflows/workflow-itticket",
-                icon: GitMerge,
-                permissions: ["TICKET_MANAGE"],
-                code: "IT_WORKFLOWS"
-            },
-        ],
-    },
+
 ];
 
 import {
@@ -259,14 +248,20 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/general/dashboard" className="flex flex-col !items-start !py-3">
-                                <div className="flex items-center gap-0">
+                            <Link href="/general/dashboard" className="flex flex-col !items-start !py-3 gap-0.5">
+                                <div className="flex items-center gap-1">
                                     <SunplastLogoIcon size={32} />
-                                    <span className="font-extrabold text-[16px] tracking-tight -ml-0.5" style={{ color: '#1B3A8C' }}>
+                                    <span className="font-extrabold text-[16px] tracking-tight group-data-[collapsible=icon]:hidden" style={{ color: '#1B3A8C' }}>
                                         plast
                                     </span>
                                 </div>
-                                <span className="text-[11px] font-semibold mt-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                <span className="text-[11px] font-bold tracking-wide group-data-[collapsible=icon]:hidden"
+                                    style={{
+                                        background: 'linear-gradient(90deg, #2563EB 0%, #0EA5E9 50%, #06B6D4 100%)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                    }}
+                                >
                                     eOffice
                                 </span>
                             </Link>
@@ -363,7 +358,7 @@ export function AppSidebar() {
                                             <SidebarMenuItem key={item.title}>
                                                 <SidebarMenuButton
                                                     asChild
-                                                    isActive={pathname === item.url || (item.url !== '/dashboard' && pathname.startsWith(item.url))}
+                                                    isActive={pathname === item.url || (item.url !== '/dashboard' && item.url !== '/cntt' && pathname.startsWith(item.url + '/'))}
                                                     tooltip={item.title}
                                                 >
                                                     <Link href={item.url}>

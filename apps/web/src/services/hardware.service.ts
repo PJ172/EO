@@ -91,7 +91,7 @@ export function useAssetStatistics() {
   return useQuery({
     queryKey: ['asset-statistics'],
     queryFn: () => apiClient.get('/it-assets/statistics').then((r) => r.data),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 3 * 60 * 1000,
   });
 }
 
@@ -108,7 +108,16 @@ export function useDashboardStats() {
   return useQuery({
     queryKey: ['it-dashboard-stats'],
     queryFn: () => apiClient.get('/it-assets/dashboard-stats').then((r) => r.data),
-    staleTime: 2 * 60 * 1000,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+// Unified: replaces useDashboardStats + useAssetStatistics + useWarrantyAlerts in one call
+export function useDashboardSummary() {
+  return useQuery({
+    queryKey: ['it-dashboard-summary'],
+    queryFn: () => apiClient.get('/it-assets/dashboard-summary').then((r) => r.data),
+    staleTime: 3 * 60 * 1000,
   });
 }
 

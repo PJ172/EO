@@ -160,6 +160,7 @@ export class TicketService {
         _count: { select: { comments: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     });
   }
 
@@ -184,6 +185,7 @@ export class TicketService {
         _count: { select: { comments: true } },
       },
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }] as any,
+      take: 200,
     });
   }
 
@@ -514,6 +516,7 @@ export class TicketService {
         this.prisma.ticket.findMany({
           where: { resolvedAt: { not: null }, deletedAt: null },
           select: { createdAt: true, resolvedAt: true },
+          take: 10000,
         }),
       ]);
 
@@ -538,6 +541,7 @@ export class TicketService {
         deletedAt: null,
       },
       select: { resolvedAt: true, slaDeadline: true },
+      take: 10000,
     });
     const slaCompliance =
       slaData.length > 0

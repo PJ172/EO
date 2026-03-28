@@ -42,7 +42,6 @@ export class EmployeeQueryService {
    * Returns true if the given user has the ADMIN or SUPER_ADMIN role.
    */
   isAdministratorUser(user: any): boolean {
-    if (user?.username === 'admin' || user?.username === 'it') return true;
     return !!user?.roles?.some(
       (r: any) =>
         r === 'SUPER_ADMIN' ||
@@ -340,34 +339,22 @@ export class EmployeeQueryService {
         }),
       ]);
 
-    // Fetch all active employees with their unit assignments for robust counting
-    const allEmployees = await this.prisma.employee.findMany({
-      where: { deletedAt: null },
-      select: {
-        companyId: true,
-        factoryId: true,
-        divisionId: true,
-        departmentId: true,
-        sectionId: true,
-      },
-    });
+    // Count employees by org unit — DB-level aggregation (không load toàn bộ employees vào memory)
+    const [byCompany, byFactory, byDivision, byDepartment, bySection] = await Promise.all([
+      this.prisma.employee.groupBy({ by: ['companyId'], where: { deletedAt: null, companyId: { not: null } }, _count: true }),
+      this.prisma.employee.groupBy({ by: ['factoryId'], where: { deletedAt: null, factoryId: { not: null } }, _count: true }),
+      this.prisma.employee.groupBy({ by: ['divisionId'], where: { deletedAt: null, divisionId: { not: null } }, _count: true }),
+      this.prisma.employee.groupBy({ by: ['departmentId'], where: { deletedAt: null, departmentId: { not: null } }, _count: true }),
+      this.prisma.employee.groupBy({ by: ['sectionId'], where: { deletedAt: null, sectionId: { not: null } }, _count: true }),
+    ]);
 
-    // Calculate counts in memory
     const counts = {
-      COMPANY: {} as Record<string, number>,
-      FACTORY: {} as Record<string, number>,
-      DIVISION: {} as Record<string, number>,
-      DEPARTMENT: {} as Record<string, number>,
-      SECTION: {} as Record<string, number>,
+      COMPANY: Object.fromEntries(byCompany.map(r => [r.companyId!, r._count])) as Record<string, number>,
+      FACTORY: Object.fromEntries(byFactory.map(r => [r.factoryId!, r._count])) as Record<string, number>,
+      DIVISION: Object.fromEntries(byDivision.map(r => [r.divisionId!, r._count])) as Record<string, number>,
+      DEPARTMENT: Object.fromEntries(byDepartment.map(r => [r.departmentId!, r._count])) as Record<string, number>,
+      SECTION: Object.fromEntries(bySection.map(r => [r.sectionId!, r._count])) as Record<string, number>,
     };
-
-    allEmployees.forEach((emp) => {
-      if (emp.companyId) counts.COMPANY[emp.companyId] = (counts.COMPANY[emp.companyId] || 0) + 1;
-      if (emp.factoryId) counts.FACTORY[emp.factoryId] = (counts.FACTORY[emp.factoryId] || 0) + 1;
-      if (emp.divisionId) counts.DIVISION[emp.divisionId] = (counts.DIVISION[emp.divisionId] || 0) + 1;
-      if (emp.departmentId) counts.DEPARTMENT[emp.departmentId] = (counts.DEPARTMENT[emp.departmentId] || 0) + 1;
-      if (emp.sectionId) counts.SECTION[emp.sectionId] = (counts.SECTION[emp.sectionId] || 0) + 1;
-    });
 
     const nodes: any[] = [];
     const edges: any[] = [];

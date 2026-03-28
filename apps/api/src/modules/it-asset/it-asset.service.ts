@@ -482,6 +482,89 @@ export class ITAssetService {
         count: d._count,
       })),
       warrantyAlerts: warrantyAlerts.length,
+      warrantyAlertsList: warrantyAlerts,
+      recentAssets,
+    };
+  }
+
+  // =====================
+  // UNIFIED DASHBOARD SUMMARY (single API call)
+  // =====================
+
+  async getDashboardSummary() {
+    const where = { deletedAt: null };
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(now.getDate() + 90);
+
+    // Categories for name lookup
+    const categoriesPromise = this.prisma.assetCategory.findMany({ select: { id: true, name: true } });
+
+    const [
+      total,
+      byStatus,
+      byAssetType,
+      byCondition,
+      byCategory,
+      byDepartment,
+      warrantyAlerts,
+      recentAssets,
+      categories,
+    ] = await Promise.all([
+      this.prisma.iTAsset.count({ where }),
+      this.prisma.iTAsset.groupBy({ by: ['status'], _count: true, where }),
+      this.prisma.iTAsset.groupBy({ by: ['assetType'], _count: true, where }),
+      this.prisma.iTAsset.groupBy({ by: ['condition'], _count: true, where }),
+      this.prisma.iTAsset.groupBy({ by: ['categoryId'], _count: true, where }),
+      this.prisma.iTAsset.groupBy({
+        by: ['departmentId'],
+        _count: true,
+        where: { ...where, departmentId: { not: null } },
+      }),
+      this.prisma.iTAsset.findMany({
+        where: {
+          deletedAt: null,
+          warrantyEndDate: { gte: now, lte: futureDate },
+        },
+        include: {
+          category: true,
+          assignedTo: { select: { id: true, fullName: true } },
+          department: { select: { id: true, name: true } },
+        },
+        orderBy: { warrantyEndDate: 'asc' },
+      }),
+      this.prisma.iTAsset.findMany({
+        where,
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          category: true,
+          assignedTo: { select: { fullName: true } },
+        },
+      }),
+      categoriesPromise,
+    ]);
+
+    // Lookup maps
+    const categoryMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+    const deptIds = byDepartment.map((d) => d.departmentId).filter(Boolean) as string[];
+    const departments = deptIds.length > 0
+      ? await this.prisma.department.findMany({ where: { id: { in: deptIds } }, select: { id: true, name: true } })
+      : [];
+    const deptMap = Object.fromEntries(departments.map((d) => [d.id, d.name]));
+
+    return {
+      total,
+      byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
+      byAssetType: byAssetType.map((t) => ({ assetType: t.assetType || 'OTHER', type: t.assetType || 'OTHER', count: t._count })),
+      byCondition: byCondition.map((c) => ({ condition: c.condition, count: c._count })),
+      byCategory: byCategory.map((c) => ({ category: categoryMap[c.categoryId] || c.categoryId, count: c._count })),
+      byDepartment: byDepartment.map((d) => ({
+        department: deptMap[d.departmentId!] || 'N/A',
+        count: d._count,
+      })),
+      warrantyAlerts: warrantyAlerts.length,
+      warrantyAlertsList: warrantyAlerts,
       recentAssets,
     };
   }

@@ -115,6 +115,13 @@ export class ITAssetController {
     return this.itAssetService.getDashboardStats();
   }
 
+  @Get('dashboard-summary')
+  @Permissions('ASSET_VIEW')
+  @ApiOperation({ summary: 'Unified dashboard data: stats + warranty + categories in one call' })
+  getDashboardSummary() {
+    return this.itAssetService.getDashboardSummary();
+  }
+
   @Get(':id')
   @Permissions('ASSET_VIEW')
   findOne(@Param('id') id: string) {

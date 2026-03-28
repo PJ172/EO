@@ -20,7 +20,7 @@ import {
     DoorOpen, Headphones, Loader2, ArrowLeft,
     ShieldCheck, Info, RotateCcw, History, Trash2,
     LayoutList, Save, CheckCircle2, XCircle, Settings2,
-    Calendar, User as UserIcon, Clock
+    Calendar, User as UserIcon, Clock, GitMerge
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -35,21 +35,15 @@ import { vi } from "date-fns/locale";
 
 const MODULES_CONFIG = [
     { code: "ORGCHART", title: "Sơ đồ tổ chức", description: "Hiển thị sơ đồ cấu trúc công ty", icon: FolderKanban, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-    { code: "EMPLOYEES", title: "Quản lý Nhân sự", description: "Danh sách và hồ sơ nhân viên", icon: Users, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
-    { code: "TIMEKEEPING", title: "Chấm công & Phân ca", description: "Dữ liệu chấm công, tăng ca", icon: CalendarDays, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-    { code: "KPI", title: "Quản lý KPI", description: "Đánh giá mục tiêu và hiệu suất", icon: Briefcase, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20" },
-    { code: "LEAVE", title: "Quản lý Nghỉ phép", description: "Đăng ký và duyệt nghỉ phép", icon: CalendarDays, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
-    { code: "REQUESTS", title: "Tờ trình điện tử", description: "Hệ thống trình ký phê duyệt", icon: FileText, color: "text-sky-600", bg: "bg-sky-50 dark:bg-sky-900/20" },
-    { code: "DOCUMENTS", title: "Quản lý Văn bản", description: "Kho lưu trữ tài liệu đơn vị", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
-    { code: "NEWS", title: "Truyền thông nội bộ", description: "Thông báo và tin tức công ty", icon: FileText, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
-    { code: "BOOKINGS", title: "Đặt phòng & Tài sản", description: "Đặt phòng họp và thiết bị", icon: DoorOpen, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/20" },
-    { code: "CARS", title: "Quản lý Đội xe", description: "Điều phối xe công tác", icon: Briefcase, color: "text-slate-600", bg: "bg-slate-50 dark:bg-slate-900/20" },
-    { code: "MEALS", title: "Quản lý Suất ăn", description: "Đăng ký suất ăn công nghiệp", icon: UtensilsCrossed, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
-    { code: "IT_ASSETS", title: "Quản lý Thiết bị IT", description: "Quản lý tài sản công nghệ", icon: Monitor, color: "text-blue-700", bg: "bg-blue-50 dark:bg-blue-900/20" },
-    { code: "TICKETS", title: "Hỗ trợ Kỹ thuật", description: "Yêu cầu hỗ trợ IT nội bộ", icon: Headphones, color: "text-indigo-700", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
-    { code: "PROJECTS", title: "Quản lý Dự án", description: "Theo dõi tiến trình dự án", icon: FolderKanban, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
-    { code: "TASKS", title: "Quản lý Công việc", description: "Giao việc và báo cáo tiến độ", icon: Briefcase, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
-    { code: "REPORTS", title: "Hệ thống Báo cáo", description: "Thống kê và phân tích dữ liệu", icon: BarChart3, color: "text-slate-700", bg: "bg-slate-50 dark:bg-slate-900/20" },
+    { code: "EMPLOYEES", title: "Nhân viên", description: "Danh sách và hồ sơ nhân viên", icon: Users, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+    { code: "TASKS", title: "Công việc", description: "Giao việc và báo cáo tiến độ", icon: Briefcase, color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20" },
+    { code: "DOCUMENTS", title: "Tài liệu", description: "Kho lưu trữ tài liệu ISO", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-900/20" },
+    { code: "NEWS", title: "Tin tức", description: "Thông báo và tin tức công ty", icon: FileText, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20" },
+    { code: "MEETING", title: "Phòng họp", description: "Đặt phòng họp và thiết bị", icon: DoorOpen, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/20" },
+    { code: "CARS", title: "Đặt xe", description: "Điều phối và đặt xe công tác", icon: Briefcase, color: "text-slate-600", bg: "bg-slate-50 dark:bg-slate-900/20" },
+    { code: "IT_ASSETS", title: "Thiết bị CNTT", description: "Quản lý tài sản công nghệ thông tin", icon: Monitor, color: "text-blue-700", bg: "bg-blue-50 dark:bg-blue-900/20" },
+    { code: "IT_TICKETS", title: "IT Ticket", description: "Yêu cầu hỗ trợ IT nội bộ", icon: Headphones, color: "text-indigo-700", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+    { code: "IT_WORKFLOWS", title: "Quy trình IT Ticket", description: "Cấu hình tự động xử lý IT Ticket", icon: GitMerge, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/20" },
 ];
 
 // Memoized Module Card Component to prevent unnecessary re-renders during input

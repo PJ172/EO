@@ -14,7 +14,7 @@ import {
     CheckCircle2, Zap, TrendingUp, Activity, Package, Users, Loader2,
     ChevronRight, ExternalLink, Timer,
 } from 'lucide-react';
-import { useDashboardStats, useWarrantyAlerts, useAssetStatistics } from '@/services/hardware.service';
+import { useDashboardSummary } from '@/services/hardware.service';
 import { useTicketStatistics } from '@/services/ticket.service';
 import { formatDistanceToNow, format, isPast, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -50,42 +50,41 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ITDashboardPage() {
-    const { data: dashStats, isLoading: dashLoading } = useDashboardStats();
-    const { data: assetStats } = useAssetStatistics();
+    // 1 API call instead of 3 (dashboard-stats + statistics + warranty-alerts)
+    const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
     const { data: ticketStats, isLoading: ticketLoading } = useTicketStatistics();
-    const { data: warrantyAlerts } = useWarrantyAlerts(90);
 
-    const isLoading = dashLoading || ticketLoading;
+    const isLoading = summaryLoading || ticketLoading;
 
-    const totalAssets = dashStats?.total || assetStats?.total || 0;
+    const totalAssets = summary?.total || 0;
     const inUse = useMemo(() =>
-        (dashStats?.byStatus || assetStats?.byStatus || []).find((s: any) => s.status === 'IN_USE')?.count || 0, [dashStats, assetStats]);
+        (summary?.byStatus || []).find((s: any) => s.status === 'IN_USE')?.count || 0, [summary]);
     const available = useMemo(() =>
-        (dashStats?.byStatus || assetStats?.byStatus || []).find((s: any) => s.status === 'AVAILABLE')?.count || 0, [dashStats, assetStats]);
+        (summary?.byStatus || []).find((s: any) => s.status === 'AVAILABLE')?.count || 0, [summary]);
     const maintenance = useMemo(() =>
-        (dashStats?.byStatus || assetStats?.byStatus || []).find((s: any) => s.status === 'MAINTENANCE')?.count || 0, [dashStats, assetStats]);
+        (summary?.byStatus || []).find((s: any) => s.status === 'MAINTENANCE')?.count || 0, [summary]);
 
     const openTickets = useMemo(() =>
         (ticketStats?.byStatus || []).reduce((sum: number, s: any) =>
             ['DRAFT', 'DEPT_PENDING', 'IT_PENDING', 'IN_PROGRESS'].includes(s.status) ? sum + s.count : sum, 0), [ticketStats]);
 
     const assetTypes = useMemo(() =>
-        (dashStats?.byAssetType || assetStats?.byAssetType || [])
+        (summary?.byAssetType || [])
             .map((t: any) => ({ type: t.type || t.assetType || 'OTHER', count: t.count }))
             .sort((a: any, b: any) => b.count - a.count)
-            .slice(0, 8), [dashStats, assetStats]);
+            .slice(0, 8), [summary]);
 
     const statusBreakdown = useMemo(() =>
-        (dashStats?.byStatus || assetStats?.byStatus || []).map((s: any) => ({
+        (summary?.byStatus || []).map((s: any) => ({
             status: s.status, count: s.count,
-        })), [dashStats, assetStats]);
+        })), [summary]);
 
     const topDepts = useMemo(() =>
-        (dashStats?.byDepartment || []).sort((a: any, b: any) => b.count - a.count).slice(0, 5),
-    [dashStats]);
+        (summary?.byDepartment || []).sort((a: any, b: any) => b.count - a.count).slice(0, 5),
+    [summary]);
 
-    const warrantyCount = warrantyAlerts?.length || dashStats?.warrantyAlerts || 0;
-    const recentAssets = dashStats?.recentAssets || [];
+    const warrantyCount = summary?.warrantyAlerts || 0;
+    const recentAssets = summary?.recentAssets || [];
 
     return (
         <div className="flex flex-col h-[calc(100vh-0rem)] space-y-4 p-2 bg-background">

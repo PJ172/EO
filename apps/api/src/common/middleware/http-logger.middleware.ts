@@ -17,6 +17,14 @@ export class HttpLoggerMiddleware implements NestMiddleware {
       const userId = (req as any).user?.sub;
 
       this.logger.logRequest(method, originalUrl, statusCode, duration, userId);
+
+      // Slow request detection
+      if (duration > 500) {
+        this.logger.warn(
+          `⚠️ SLOW REQUEST: ${method} ${originalUrl} took ${duration}ms (status: ${statusCode})`,
+          'HttpLogger',
+        );
+      }
     });
 
     next();

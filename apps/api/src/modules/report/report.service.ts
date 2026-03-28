@@ -150,6 +150,7 @@ export class ReportService {
           department: { select: { name: true } },
         },
         orderBy: { contractEndDate: 'asc' },
+        take: 100,
       }),
 
       this.prisma.employee.groupBy({
@@ -394,6 +395,7 @@ export class ReportService {
         select: {
           employee: { select: { departmentId: true } },
         },
+        take: 5000,
       }),
     ]);
 
