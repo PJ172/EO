@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import OrgChartCanvas from '@/components/org-chart/org-chart-canvas';
+import OrgChartExport from '@/components/org-chart/org-chart-export';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/components/ui/toaster';
 import { companyService } from '@/services/company.service';
@@ -134,7 +135,7 @@ export default function OrgChartPage() {
 
     // Phase 5: Locking & Employee Listing
     const [isLocked, setIsLocked] = useState(true);
-    const canvasRef = useRef<{ getNodes: () => any[], focusNode: (nodeId: string) => void, getConfig: () => any }>(null);
+    const canvasRef = useRef<{ getNodes: () => any[], getEdges: () => any[], focusNode: (nodeId: string) => void, getConfig: () => any, saveConfig: () => Promise<any> }>(null);
 
     // Phase 6: Search & Focus
     const [searchQuery, setSearchQuery] = useState('');
@@ -492,8 +493,18 @@ export default function OrgChartPage() {
                     y: Math.round(n.position.y)
                 }));
             
+            // Collect edge waypoints from canvas
+            const currentEdges = canvasRef.current?.getEdges?.() || [];
+            const edgeWaypoints = currentEdges
+                .filter((e: any) => e.data?.waypoints?.length > 0)
+                .map((e: any) => ({
+                    edgeId: e.id,
+                    waypoints: e.data.waypoints,
+                }));
+
             await Promise.all([
                 positions.length > 0 ? apiPost('/organization/positions/bulk', { chartKey, positions }) : Promise.resolve(),
+                edgeWaypoints.length > 0 ? apiPost('/organization/edge-waypoints', { chartKey, edges: edgeWaypoints }) : Promise.resolve(),
                 canvasRef.current?.saveConfig ? canvasRef.current.saveConfig() : (configPayload ? apiPatch('/organization/config/global', configPayload) : Promise.resolve())
             ]);
             
@@ -610,6 +621,9 @@ export default function OrgChartPage() {
                             </Button>
                         )}
                     </div>
+
+                    {/* Export button — always visible */}
+                    <OrgChartExport chartTitle={currentView === 'COMPANY' ? 'Sơ_đồ_công_ty' : 'Sơ_đồ_phòng_ban'} />
 
                     {/* Compact Search Bar */}
                     <div className="relative group flex-1 max-w-[320px]">

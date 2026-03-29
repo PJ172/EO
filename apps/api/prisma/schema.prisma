@@ -50,6 +50,7 @@ model User {
   moduleVisibilityConfigs ModuleVisibilityConfig[] @relation("VisibilityGlobal")
   updatedOrgConfigs       OrgChartConfig[]         @relation("OrgConfigUpdater")
   createdOrgOverrides     OrgChartOverride[]       @relation("UserOrgOverrideCreator")
+  createdOrgChartVersions OrgChartVersion[]        @relation("OrgChartVersionCreator")
   updatedOrgOverrides     OrgChartViewOverride[]
   createdSections         Section[]                @relation("SectionCreatedBy")
   deletedSections         Section[]                @relation("SectionDeletedBy")
@@ -194,6 +195,24 @@ model OrgChartOverride {
 
   @@index([employeeId])
   @@map("org_chart_overrides")
+}
+
+model OrgChartVersion {
+  id          String   @id @default(uuid())
+  chartKey    String   @map("chart_key")
+  versionNum  Int      @map("version_num")
+  label       String?
+  description String?
+  isScenario  Boolean  @default(false) @map("is_scenario")
+  snapshot    Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by_id")
+  createdBy   User?    @relation("OrgChartVersionCreator", fields: [createdById], references: [id])
+
+  @@unique([chartKey, versionNum])
+  @@index([chartKey, isScenario])
+  @@index([createdAt])
+  @@map("org_chart_versions")
 }
 
 model AuditLog {
@@ -1659,6 +1678,18 @@ model OrgChartNodePosition {
   @@unique([chartKey, nodeId])
   @@index([chartKey])
   @@map("org_chart_node_positions")
+}
+
+model OrgChartEdgeWaypoint {
+  id        String   @id @default(cuid())
+  chartKey  String   @map("chart_key")
+  edgeId    String   @map("edge_id")
+  waypoints Json     @default("[]")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([chartKey, edgeId])
+  @@index([chartKey])
+  @@map("org_chart_edge_waypoints")
 }
 
 enum VisibilityTargetType {

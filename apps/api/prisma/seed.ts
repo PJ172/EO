@@ -23,6 +23,7 @@ async function main() {
         { code: 'DEPARTMENT_READ', description: 'View departments', module: 'ORG' },
         { code: 'DEPARTMENT_MANAGE', description: 'Manage departments', module: 'ORG' },
         { code: 'ORGCHART_VIEW', description: 'View org chart', module: 'ORG' },
+        { code: 'ORGCHART_MANAGE', description: 'Manage org chart (layout, versions, scenarios)', module: 'ORG' },
         { code: 'FACTORY_READ', description: 'View factories', module: 'ORG' },
         { code: 'FACTORY_MANAGE', description: 'Manage factories', module: 'ORG' },
         { code: 'COMPANY_READ', description: 'View companies', module: 'ORG' },
@@ -211,7 +212,7 @@ async function main() {
             code: 'HR', name: 'Human Resources', description: 'HR department staff',
             perms: [
                 'EMPLOYEE_READ', 'EMPLOYEE_CREATE', 'EMPLOYEE_UPDATE', 'EMPLOYEE_DELETE', 'EMPLOYEE_UPLOAD_FILE',
-                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ', 'JOB_POSITION_READ',
+                'DEPARTMENT_READ', 'ORGCHART_VIEW', 'ORGCHART_MANAGE', 'FACTORY_READ', 'COMPANY_READ', 'DIVISION_READ', 'SECTION_READ', 'JOBTITLE_READ', 'JOB_POSITION_READ',
                 'LEAVE_VIEW', 'LEAVE_APPROVE', 'LEAVE_MANAGE',
                 'TIMEKEEPING_VIEW', 'TIMEKEEPING_MANAGE', 'TIMEKEEPING_EXPORT',
                 'ROOM_VIEW', 'ROOM_BOOK',

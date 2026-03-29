@@ -99,13 +99,13 @@ interface EmployeeNodeProps {
     sourcePosition?: Position;
 }
 
-// Shared handle class for LOCK MODE: fully invisible + no pointer events
-const LOCK_HANDLE = '!w-2.5 !h-2.5 !bg-transparent !border-transparent !shadow-none opacity-0 pointer-events-none';
-// Design mode: visible colored handles
-const DESIGN_HANDLE_T = '!w-3 !h-3 !border-2 !bg-emerald-400 !border-white shadow-sm';  // GREEN = Parent point (connects up)
-const DESIGN_HANDLE_B = '!w-3 !h-3 !border-2 !bg-amber-400 !border-white shadow-sm';    // AMBER = Child point (connects down)
-const DESIGN_HANDLE_L = '!w-3 !h-3 !border-2 !bg-sky-400 !border-white shadow-sm hover:scale-125 z-50';
-const DESIGN_HANDLE_R = '!w-3 !h-3 !border-2 !bg-purple-400 !border-white shadow-sm hover:scale-125 z-50';
+// Lock mode: truly invisible — 0px size, no paint
+const LOCK_HANDLE = '!w-0 !h-0 !min-w-0 !min-h-0 !p-0 !border-0 !bg-transparent !shadow-none !opacity-0 pointer-events-none';
+// Design mode handles with hover interaction
+const DESIGN_HANDLE_T = '!w-3.5 !h-3.5 !border-2 !bg-emerald-400 !border-white shadow-md hover:!scale-125 hover:!bg-emerald-500 transition-transform z-50';
+const DESIGN_HANDLE_B = '!w-3.5 !h-3.5 !border-2 !bg-amber-400 !border-white shadow-md hover:!scale-125 hover:!bg-amber-500 transition-transform z-50';
+const DESIGN_HANDLE_L = '!w-3 !h-3 !border-2 !bg-sky-400 !border-white shadow-md hover:!scale-125 hover:!bg-sky-500 transition-transform z-50';
+const DESIGN_HANDLE_R = '!w-3 !h-3 !border-2 !bg-rose-400 !border-white shadow-md hover:!scale-125 hover:!bg-rose-500 transition-transform z-50';
 
 export default memo(function EmployeeNode({ data, id, targetPosition = Position.Top, sourcePosition = Position.Bottom }: EmployeeNodeProps) {
     const tier = getJobTier(data.jobTitle);
@@ -168,32 +168,24 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                 </>
             )}
 
-            {/* ── Handles: fully transparent in lock mode, colored in design mode ── */}
-            {/* Top target (incoming) */}
+            {/* ── Handles ── */}
+            {/* Lock mode: invisible minimal handles for edge routing only */}
             <Handle type="target" position={Position.Top} id="top"
                 className={dm ? DESIGN_HANDLE_T : LOCK_HANDLE} />
-            {/* Top source (outgoing upward — rare) */}
-            <Handle type="source" position={Position.Top} id="top-source"
-                className={LOCK_HANDLE} />
-
-            {/* Bottom source (primary outbound) */}
             <Handle type="source" position={Position.Bottom} id="bottom"
                 className={dm ? DESIGN_HANDLE_B : LOCK_HANDLE} />
-            {/* Bottom target */}
-            <Handle type="target" position={Position.Bottom} id="bottom-target"
-                className={LOCK_HANDLE} />
 
-            {/* Left — matrix/secondary */}
-            <Handle type="target" position={Position.Left} id="left"
-                className={dm ? DESIGN_HANDLE_L : LOCK_HANDLE} />
-            <Handle type="source" position={Position.Left} id="left-source"
-                className={dm ? DESIGN_HANDLE_L : LOCK_HANDLE} />
-
-            {/* Right — matrix/secondary */}
-            <Handle type="source" position={Position.Right} id="right"
-                className={dm ? DESIGN_HANDLE_R : LOCK_HANDLE} />
-            <Handle type="target" position={Position.Right} id="right-target"
-                className={dm ? DESIGN_HANDLE_R : LOCK_HANDLE} />
+            {/* Design mode only: full handle set for interactive edge wiring */}
+            {dm && (
+                <>
+                    <Handle type="source" position={Position.Top} id="top-source" className={LOCK_HANDLE} />
+                    <Handle type="target" position={Position.Bottom} id="bottom-target" className={DESIGN_HANDLE_T} />
+                    <Handle type="target" position={Position.Left} id="left" className={DESIGN_HANDLE_L} />
+                    <Handle type="source" position={Position.Left} id="left-source" className={DESIGN_HANDLE_L} />
+                    <Handle type="source" position={Position.Right} id="right" className={DESIGN_HANDLE_R} />
+                    <Handle type="target" position={Position.Right} id="right-target" className={DESIGN_HANDLE_R} />
+                </>
+            )}
 
             {/* Tier accent line — top gradient bar */}
             {!data.customBg && (tier === 'director' || tier === 'manager') && (

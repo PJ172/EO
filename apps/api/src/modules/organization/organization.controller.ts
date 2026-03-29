@@ -35,6 +35,7 @@ import { OrganizationExcelService } from './organization.excel.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { ImportHistoryService } from '../import-history/import-history.service';
+import { OrgChartVersionService } from './org-chart-version.service';
 import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('Organization')
@@ -47,6 +48,7 @@ export class OrganizationController {
     private organizationService: OrganizationService,
     private excelService: OrganizationExcelService,
     private importHistoryService: ImportHistoryService,
+    private versionService: OrgChartVersionService,
   ) {}
 
   @Get('tree')
@@ -216,7 +218,7 @@ export class OrganizationController {
 
   @Patch('position')
   @Audit(Action.UPDATE)
-  @Permissions('DEPARTMENT_MANAGE')
+  @Permissions('ORGCHART_MANAGE')
   @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ (theo chartKey)' })
   async updatePosition(@Body() body: Record<string, any>) {
     const chartKey = body['chartKey'] as string | undefined;
@@ -254,7 +256,7 @@ export class OrganizationController {
 
   @Post('positions/bulk')
   @Audit(Action.UPDATE)
-  @Permissions('DEPARTMENT_MANAGE')
+  @Permissions('ORGCHART_MANAGE')
   @ApiOperation({ summary: 'Lưu vị trí UI trên sơ đồ hàng loạt (theo chartKey)' })
   async updateBulkPositions(
     @Body() body: { chartKey?: string; positions: { nodeId: string; x: number; y: number }[] },
@@ -294,7 +296,7 @@ export class OrganizationController {
 
   @Patch('config/global')
   @Audit(Action.UPDATE)
-  @Permissions('DEPARTMENT_MANAGE')
+  @Permissions('ORGCHART_MANAGE')
   @ApiOperation({ summary: 'Lưu cấu hình chung sơ đồ (Zoom, Spacing,...)' })
   async updateOrgConfig(
     @Body() body: { nodesep?: number; ranksep?: number; zoom?: number; nodeDims?: any },
@@ -314,7 +316,7 @@ export class OrganizationController {
 
   @Post('overrides/matrix')
   @Audit(Action.CREATE)
-  @Permissions('DEPARTMENT_MANAGE')
+  @Permissions('ORGCHART_MANAGE')
   @ApiOperation({ summary: 'Thêm/Cập nhật ghi đè hiển thị (MOVE_NODE, ADD_DOTTED_LINE, HIDE_NODE)' })
   async addOverride(
     @Body() body: { employeeId: string; action: string; targetManagerId: string; targetHandle?: string },
@@ -325,9 +327,164 @@ export class OrganizationController {
 
   @Delete('overrides/matrix/:id')
   @Audit(Action.DELETE)
-  @Permissions('DEPARTMENT_MANAGE')
+  @Permissions('ORGCHART_MANAGE')
   @ApiOperation({ summary: 'Xóa ghi đè hiển thị sơ đồ' })
   async removeOverride(@Param('id') id: string) {
     return this.organizationService.removeOverride(id);
+  }
+
+  // --- Edge Waypoints ---
+
+  @Get('edge-waypoints/:chartKey')
+  @Permissions('ORGCHART_VIEW')
+  @ApiOperation({ summary: 'Lấy waypoints của edges theo chartKey' })
+  async getEdgeWaypoints(@Param('chartKey') chartKey: string) {
+    return this.organizationService.getEdgeWaypoints(chartKey);
+  }
+
+  @Post('edge-waypoints')
+  @Audit(Action.UPDATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Lưu bulk edge waypoints cho chart' })
+  async saveEdgeWaypoints(
+    @Body() body: { chartKey: string; edges: { edgeId: string; waypoints: { x: number; y: number }[] }[] },
+  ) {
+    return this.organizationService.saveEdgeWaypoints(body.chartKey, body.edges);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Version History & Scenario Endpoints
+  // ═══════════════════════════════════════════════════════════
+
+  @Get('versions/:chartKey')
+  @Permissions('ORGCHART_VIEW')
+  @ApiOperation({ summary: 'Danh sách versions của chart' })
+  async listVersions(
+    @Param('chartKey') chartKey: string,
+    @Query('isScenario') isScenario?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    return this.versionService.listVersions(chartKey, {
+      isScenario: isScenario !== undefined ? isScenario === 'true' : undefined,
+      take: take ? parseInt(take) : undefined,
+      skip: skip ? parseInt(skip) : undefined,
+    });
+  }
+
+  @Get('versions/:chartKey/:versionNum')
+  @Permissions('ORGCHART_VIEW')
+  @ApiOperation({ summary: 'Chi tiết một version (bao gồm snapshot)' })
+  async getVersion(
+    @Param('chartKey') chartKey: string,
+    @Param('versionNum') versionNum: string,
+  ) {
+    return this.versionService.getVersion(chartKey, parseInt(versionNum));
+  }
+
+  @Post('versions')
+  @Audit(Action.CREATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Tạo version snapshot thủ công' })
+  async createVersion(
+    @Body() body: { chartKey: string; label?: string; description?: string },
+    @CurrentUser() user: any,
+  ) {
+    const snapshot = await this.versionService.buildSnapshotFromCurrentState(body.chartKey);
+    return this.versionService.createVersion({
+      chartKey: body.chartKey,
+      snapshot,
+      label: body.label,
+      description: body.description,
+      createdById: user?.id,
+    });
+  }
+
+  @Post('versions/:chartKey/:versionNum/restore')
+  @Audit(Action.UPDATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Khôi phục sơ đồ từ version cũ' })
+  async restoreVersion(
+    @Param('chartKey') chartKey: string,
+    @Param('versionNum') versionNum: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.versionService.restoreVersion(chartKey, parseInt(versionNum), user?.id);
+  }
+
+  @Patch('versions/:id')
+  @Audit(Action.UPDATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Cập nhật label/description version' })
+  async updateVersion(
+    @Param('id') id: string,
+    @Body() body: { label?: string; description?: string },
+  ) {
+    return this.versionService.updateVersion(id, body);
+  }
+
+  @Delete('versions/:id')
+  @Audit(Action.DELETE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Xóa version' })
+  async deleteVersion(@Param('id') id: string) {
+    return this.versionService.deleteVersion(id);
+  }
+
+  // ── Scenarios ──────────────────────────────────────────────
+
+  @Post('scenarios')
+  @Audit(Action.CREATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Tạo scenario branch (fork từ version hiện tại)' })
+  async createScenario(
+    @Body() body: { chartKey: string; label?: string; description?: string; fromVersionNum?: number },
+    @CurrentUser() user: any,
+  ) {
+    let snapshot: any;
+    if (body.fromVersionNum) {
+      const version = await this.versionService.getVersion(body.chartKey, body.fromVersionNum);
+      snapshot = version.snapshot;
+    } else {
+      snapshot = await this.versionService.buildSnapshotFromCurrentState(body.chartKey);
+    }
+    return this.versionService.createVersion({
+      chartKey: body.chartKey,
+      snapshot,
+      label: body.label || 'Kịch bản mới',
+      description: body.description,
+      isScenario: true,
+      createdById: user?.id,
+    });
+  }
+
+  @Patch('scenarios/:id')
+  @Audit(Action.UPDATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Cập nhật scenario (snapshot, label)' })
+  async updateScenario(
+    @Param('id') id: string,
+    @Body() body: { label?: string; description?: string; snapshot?: any },
+  ) {
+    return this.versionService.updateVersion(id, body);
+  }
+
+  @Post('scenarios/:id/apply')
+  @Audit(Action.UPDATE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Áp dụng scenario vào production' })
+  async applyScenario(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.versionService.applyScenario(id, user?.id);
+  }
+
+  @Delete('scenarios/:id')
+  @Audit(Action.DELETE)
+  @Permissions('ORGCHART_MANAGE')
+  @ApiOperation({ summary: 'Xóa scenario' })
+  async deleteScenario(@Param('id') id: string) {
+    return this.versionService.deleteVersion(id);
   }
 }

@@ -3,13 +3,15 @@
 import { useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { apiGet } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Network, Loader2, Users, Lock, Unlock } from 'lucide-react';
+import { ArrowLeft, Network, Loader2, Users, Lock, Unlock, Save } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
 import OrgChartCanvas from '@/components/org-chart/org-chart-canvas';
+import OrgChartExport from '@/components/org-chart/org-chart-export';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/toaster';
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────
 const fetchAllDepts = () =>
@@ -32,6 +34,7 @@ function DeptChartContent() {
 
     const [selectedDeptId, setSelectedDeptId] = useState<string>(paramDeptId);
     const [isLocked, setIsLocked] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const canvasRef = useRef<any>(null);
 
     // All departments for dropdown
@@ -81,6 +84,40 @@ function DeptChartContent() {
         router.replace(`/dept-chart?deptId=${deptId}`, { scroll: false });
     };
 
+    const handleSaveLayout = async () => {
+        if (!selectedDeptId || !canvasRef.current) return;
+        setIsSaving(true);
+        const toastId = toast.loading('\u0110ang l\u01b0u b\u1ed1 c\u1ee5c s\u01a1 \u0111\u1ed3...');
+        try {
+            const chartKey = `DEPT-${selectedDeptId}`;
+            const nodes = canvasRef.current.getNodes?.() || [];
+            const positions = nodes.map((n: any) => ({
+                nodeId: n.id,
+                x: Math.round(n.position.x),
+                y: Math.round(n.position.y),
+            }));
+
+            // Collect edge waypoints
+            const currentEdges = canvasRef.current.getEdges?.() || [];
+            const edgeWaypoints = currentEdges
+                .filter((e: any) => e.data?.waypoints?.length > 0)
+                .map((e: any) => ({
+                    edgeId: e.id,
+                    waypoints: e.data.waypoints,
+                }));
+
+            await Promise.all([
+                positions.length > 0 ? apiPost('/organization/positions/bulk', { chartKey, positions }) : Promise.resolve(),
+                edgeWaypoints.length > 0 ? apiPost('/organization/edge-waypoints', { chartKey, edges: edgeWaypoints }) : Promise.resolve(),
+            ]);
+            toast.success('B\u1ed1 c\u1ee5c \u0111\u00e3 \u0111\u01b0\u1ee3c l\u01b0u th\u00e0nh c\u00f4ng!', { id: toastId });
+        } catch (error: any) {
+            toast.error(error.message || 'L\u1ed7i khi l\u01b0u b\u1ed1 c\u1ee5c', { id: toastId });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden">
             {/* ── Topbar ── */}
@@ -126,6 +163,20 @@ function DeptChartContent() {
                     >
                         {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                     </Button>
+                    {!isLocked && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Lưu toàn bộ bố cục"
+                            onClick={handleSaveLayout}
+                            disabled={isSaving}
+                            className="h-8 gap-1.5 text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 rounded-lg text-xs font-semibold px-3"
+                        >
+                            <Save className="w-3.5 h-3.5" />
+                            {isSaving ? 'Đang lưu...' : 'Lưu bố cục'}
+                        </Button>
+                    )}
+                    <OrgChartExport chartTitle={selectedDept ? `Sơ_đồ_${selectedDept.name}` : 'Sơ_đồ_phòng_ban'} />
                     <div className="w-72">
                     <Select
                         value={selectedDeptId}

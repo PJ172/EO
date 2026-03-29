@@ -92,30 +92,40 @@ export default memo(function StructureNode({
                 </button>
             )}
 
-            {/* ── Handles: invisible in lock, colored in design mode ── */}
-            <Handle
-                id="top" type="target" position={targetPosition}
-                className={cn("!w-2.5 !h-2.5 !border-2", data.isDesignMode ? "!bg-amber-400 !border-white shadow-sm" : "!bg-transparent !border-transparent opacity-0 pointer-events-none")}
+            {/* ── Handles ── */}
+            {/* Lock mode: invisible minimal handles for edge routing */}
+            <Handle id="top" type="target" position={targetPosition}
+                className={cn(
+                    data.isDesignMode 
+                        ? "!w-3.5 !h-3.5 !border-2 !bg-emerald-400 !border-white shadow-md hover:!scale-125 hover:!bg-emerald-500 transition-transform z-50" 
+                        : "!w-0 !h-0 !min-w-0 !min-h-0 !p-0 !border-0 !bg-transparent !shadow-none !opacity-0 pointer-events-none"
+                )}
             />
-            <Handle id="top-source" type="source" position={targetPosition}
-                className="!w-2.5 !h-2.5 !bg-transparent !border-transparent opacity-0 pointer-events-none" />
-
-            <Handle
-                id="bottom" type="source" position={sourcePosition}
-                className={cn("!w-2.5 !h-2.5 !border-2", data.isDesignMode ? "!bg-emerald-400 !border-white shadow-sm" : "!bg-transparent !border-transparent opacity-0 pointer-events-none")}
+            <Handle id="bottom" type="source" position={sourcePosition}
+                className={cn(
+                    data.isDesignMode 
+                        ? "!w-3.5 !h-3.5 !border-2 !bg-amber-400 !border-white shadow-md hover:!scale-125 hover:!bg-amber-500 transition-transform z-50" 
+                        : "!w-0 !h-0 !min-w-0 !min-h-0 !p-0 !border-0 !bg-transparent !shadow-none !opacity-0 pointer-events-none"
+                )}
             />
-            <Handle id="bottom-target" type="target" position={sourcePosition}
-                className="!w-2.5 !h-2.5 !bg-transparent !border-transparent opacity-0 pointer-events-none" />
 
-            <Handle type="target" position={Position.Left} id="left"
-                className={cn("!w-2.5 !h-2.5 !border-2", data.isDesignMode ? "!bg-sky-400 !border-white shadow-sm hover:scale-125 z-50" : "!bg-transparent !border-transparent opacity-0 pointer-events-none")} />
-            <Handle type="source" position={Position.Left} id="left-source"
-                className="!w-2.5 !h-2.5 !bg-transparent !border-transparent opacity-0 pointer-events-none" />
-
-            <Handle type="source" position={Position.Right} id="right"
-                className={cn("!w-2.5 !h-2.5 !border-2", data.isDesignMode ? "!bg-purple-400 !border-white shadow-sm hover:scale-125 z-50" : "!bg-transparent !border-transparent opacity-0 pointer-events-none")} />
-            <Handle type="target" position={Position.Right} id="right-target"
-                className="!w-2.5 !h-2.5 !bg-transparent !border-transparent opacity-0 pointer-events-none" />
+            {/* Design mode only: all handles for interactive wiring */}
+            {data.isDesignMode && (
+                <>
+                    <Handle id="top-source" type="source" position={targetPosition}
+                        className="!w-0 !h-0 !opacity-0 pointer-events-none" />
+                    <Handle id="bottom-target" type="target" position={sourcePosition}
+                        className="!w-3 !h-3 !border-2 !bg-emerald-400 !border-white shadow-md hover:!scale-125 transition-transform z-50" />
+                    <Handle type="target" position={Position.Left} id="left"
+                        className="!w-3 !h-3 !border-2 !bg-sky-400 !border-white shadow-md hover:!scale-125 hover:!bg-sky-500 transition-transform z-50" />
+                    <Handle type="source" position={Position.Left} id="left-source"
+                        className="!w-3 !h-3 !border-2 !bg-sky-400 !border-white shadow-md hover:!scale-125 hover:!bg-sky-500 transition-transform z-50" />
+                    <Handle type="source" position={Position.Right} id="right"
+                        className="!w-3 !h-3 !border-2 !bg-rose-400 !border-white shadow-md hover:!scale-125 hover:!bg-rose-500 transition-transform z-50" />
+                    <Handle type="target" position={Position.Right} id="right-target"
+                        className="!w-3 !h-3 !border-2 !bg-rose-400 !border-white shadow-md hover:!scale-125 hover:!bg-rose-500 transition-transform z-50" />
+                </>
+            )}
 
             <div
                 className={`overflow-hidden rounded-2xl transition-all duration-300 h-full flex flex-col ${isClickable ? 'cursor-pointer' : ''}`}

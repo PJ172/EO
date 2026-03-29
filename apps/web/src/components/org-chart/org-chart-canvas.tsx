@@ -19,12 +19,11 @@ import {
     reconnectEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert } from 'lucide-react';
+import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert, Info, Waypoints, History } from 'lucide-react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import dagre from 'dagre';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
@@ -39,210 +38,28 @@ import {
 } from "@/components/ui/alert-dialog";
 import StructureNode from './custom-nodes/structure-node';
 import EmployeeNode from './custom-nodes/employee-node';
+import SpacingEdge from './custom-edges/spacing-edge';
+import EditableEdge from './custom-edges/editable-edge';
+import AutoRoutedEdge from './custom-edges/auto-routed-edge';
+import { useElkEdgeRouting, type ElkPoint } from './hooks/use-elk-edge-routing';
+import VersionHistoryPanel from './version-history-panel';
+import NodeSpacingGuides from './node-spacing-guides';
+import {
+    treeLayout,
+    getDescendantIds,
+    computeEmployeeLevelMap,
+    getEdgeStyle as computeEdgeStyle,
+    defaultNodeColors,
+    gradientPresets as importedGradientPresets,
+    NODE_W,
+    NODE_H,
+    H_GAP,
+    type LayoutOptions,
+} from './hooks/use-org-chart-layout';
 
 const nodeTypes = { orgNode: StructureNode, employeeNode: EmployeeNode };
+const edgeTypes = { spacingEdge: SpacingEdge, editableEdge: EditableEdge, autoRoutedEdge: AutoRoutedEdge };
 const fitViewOptions = { maxZoom: 1.2, minZoom: 0.3, padding: 0.15 };
-
-// ─────────────────────────────────────────────────────────────
-// Dagre Graph Layout — Robust Coordinate Spacing Spawner
-// ─────────────────────────────────────────────────────────────
-const NODE_W = 272;
-const NODE_H = 220;  // Synced with employee-node actual height
-const V_GAP  = 140;  // Extra breathing room to prevent edge-over-node overlap
-const H_GAP  = 50;  
-interface LayoutOptions {
-    nodesep: number;
-    ranksep: number;
-}
-
-function treeLayout(rootId: string, allNodeIds: string[], edges: Edge[], isHorizontal: boolean, options: LayoutOptions, nodeDimsMap: Map<string, {w: number, h: number}>, nodeLevelsMap?: Record<string, string>): Map<string, {x: number, y: number}> {
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ 
-        rankdir: isHorizontal ? 'LR' : 'TB', 
-        nodesep: options.nodesep, 
-        ranksep: options.ranksep 
-    });
-
-    const nonSectionNodeIds = allNodeIds.filter(id => !id.startsWith('section-'));
-    const nonSectionEdges = edges.filter(e => !e.target.startsWith('section-'));
-
-    nonSectionNodeIds.forEach(id => {
-        const dims = nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H };
-        // Guard: dagre crashes if width or height is 0
-        const w = Math.max(dims.w || NODE_W, 10);
-        const h = Math.max(dims.h || NODE_H, 10);
-        dagreGraph.setNode(id, { width: w, height: h });
-    });
-    nonSectionEdges.forEach(e => dagreGraph.setEdge(e.source, e.target));
-
-    try {
-        dagre.layout(dagreGraph);
-    } catch (err) {
-        console.warn('[dagre] Layout error (likely zero-dimension node):', err);
-    }
-
-    const result = new Map<string, {x: number, y: number}>();
-    allNodeIds.forEach(id => {
-        if (!id.startsWith('section-')) {
-            const node = dagreGraph.node(id);
-            const dims = nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H };
-            if (node) result.set(id, { x: node.x - dims.w / 2, y: node.y - dims.h / 2 });
-        }
-    });
-
-    // Position Section nodes manually as a vertical stacked list inside their Department
-    if (!isHorizontal) {
-        allNodeIds.forEach(deptId => {
-            if (deptId.startsWith('department-') && result.has(deptId)) {
-                const deptPos = result.get(deptId)!;
-                const deptEdges = edges.filter(e => e.source === deptId && e.target.startsWith('section-'));
-                const sectionIds = deptEdges.map(e => e.target);
-
-                if (sectionIds.length > 0) {
-                    let currentY = deptPos.y + NODE_H + 40; 
-                    const currentX = deptPos.x + 30; // Indented rightward
-
-                    sectionIds.forEach(secId => {
-                        result.set(secId, { x: currentX, y: currentY });
-                        currentY += NODE_H + 20; // Distance downwards 
-                    });
-                }
-            }
-        });
-    } else {
-         allNodeIds.forEach(deptId => {
-            if (deptId.startsWith('department-') && result.has(deptId)) {
-                const deptPos = result.get(deptId)!;
-                const deptEdges = edges.filter(e => e.source === deptId && e.target.startsWith('section-'));
-                const sectionIds = deptEdges.map(e => e.target);
-
-                if (sectionIds.length > 0) {
-                     let currentY = deptPos.y + NODE_H + 20; 
-                     const currentX = deptPos.x + 0; 
-                     sectionIds.forEach(secId => {
-                         result.set(secId, { x: currentX, y: currentY });
-                         currentY += NODE_H + 20;
-                     });
-                }
-            }
-        });
-    }
-
-    // ── Layer Alignment: Snap same-layer nodes to equal horizontal rows ──
-    if (nodeLevelsMap && Object.keys(nodeLevelsMap).length > 0 && !isHorizontal) {
-        const layerGroups = new Map<string, string[]>();
-        allNodeIds.forEach(id => {
-            const layer = nodeLevelsMap[id];
-            if (layer) {
-                if (!layerGroups.has(layer)) layerGroups.set(layer, []);
-                layerGroups.get(layer)!.push(id);
-            }
-        });
-
-        layerGroups.forEach((ids: string[]) => {
-            const positions = ids.map((id: string) => result.get(id)).filter(Boolean) as {x: number, y: number}[];
-            if (positions.length < 2) return;
-            const targetY = Math.min(...positions.map((p: {x: number, y: number}) => p.y));
-            ids.forEach((id: string) => {
-                const pos = result.get(id);
-                if (pos) result.set(id, { x: pos.x, y: targetY });
-            });
-        });
-
-        // ── X-axis overlap resolution: evenly space nodes within each layer ──
-        layerGroups.forEach((ids: string[]) => {
-            if (ids.length < 2) return;
-            // Sort by current X position
-            const sorted = ids
-                .map((id: string) => ({ id, pos: result.get(id)!, dims: nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H } }))
-                .filter((n: any) => n.pos)
-                .sort((a: any, b: any) => a.pos.x - b.pos.x);
-
-            // Check and fix overlaps: push nodes right if they overlap
-            for (let i = 1; i < sorted.length; i++) {
-                const prev = sorted[i - 1];
-                const curr = sorted[i];
-                const minX = prev.pos.x + prev.dims.w + options.nodesep;
-                if (curr.pos.x < minX) {
-                    curr.pos.x = minX;
-                    result.set(curr.id, { x: curr.pos.x, y: curr.pos.y });
-                }
-            }
-
-            // Re-center the group around the original midpoint
-            const firstX = sorted[0].pos.x;
-            const lastX = sorted[sorted.length - 1].pos.x + sorted[sorted.length - 1].dims.w;
-            const groupWidth = lastX - firstX;
-            const origFirstX = Math.min(...ids.map((id: string) => result.get(id)?.x ?? 0));
-            const origLastEntry = ids.reduce((max: number, id: string) => {
-                const p = result.get(id);
-                const d = nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H };
-                return p && (p.x + d.w) > max ? (p.x + d.w) : max;
-            }, 0);
-            // Keep original center
-            const origCenter = (origFirstX + origLastEntry) / 2;
-            const newCenter = firstX + groupWidth / 2;
-            const shiftX = origCenter - newCenter;
-            if (Math.abs(shiftX) > 1) {
-                sorted.forEach((n: any) => {
-                    result.set(n.id, { x: n.pos.x + shiftX, y: n.pos.y });
-                });
-            }
-        });
-
-        // Prevent vertical overlap between layers
-        const layerYs = new Map<string, number>();
-        layerGroups.forEach((ids: string[], layer: string) => {
-            const pos = result.get(ids[0]);
-            if (pos) layerYs.set(layer, pos.y);
-        });
-        const sortedLayers = [...layerYs.entries()].sort((a, b) => a[1] - b[1]);
-        for (let i = 1; i < sortedLayers.length; i++) {
-            const prevLayer = sortedLayers[i - 1][0];
-            const currLayer = sortedLayers[i][0];
-            const prevIds = layerGroups.get(prevLayer) || [];
-            const currIds = layerGroups.get(currLayer) || [];
-            let prevMaxBottom = 0;
-            prevIds.forEach((id: string) => {
-                const pos = result.get(id);
-                const dims = nodeDimsMap.get(id) || { w: 272, h: 220 };
-                if (pos) prevMaxBottom = Math.max(prevMaxBottom, pos.y + dims.h);
-            });
-            const currY = result.get(currIds[0])?.y ?? 0;
-            const minGap = options.ranksep;
-            if (currY < prevMaxBottom + minGap) {
-                const shift = (prevMaxBottom + minGap) - currY;
-                currIds.forEach((id: string) => {
-                    const pos = result.get(id);
-                    if (pos) result.set(id, { x: pos.x, y: pos.y + shift });
-                });
-                sortedLayers[i][1] = currY + shift;
-            }
-        }
-    }
-
-    // Center the whole tree
-    let minX = Infinity, minY = Infinity;
-    result.forEach(p => { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); });
-    result.forEach((p, id) => result.set(id, { x: p.x - minX + 60, y: p.y - minY + 60 }));
-
-    return result;
-}
-// ─────────────────────────────────────────────────────────────
-
-const getDescendantIds = (nodeId: string, edges: Edge[]): string[] => {
-    const visited = new Set<string>();
-    const get = (id: string): string[] => {
-        if (visited.has(id)) return [];
-        visited.add(id);
-        const childrenIds = edges.filter(e => e.source === id).map(e => e.target);
-        const descendants = [...childrenIds];
-        for (const childId of childrenIds) descendants.push(...get(childId));
-        return descendants;
-    };
-    return get(nodeId);
-};
 
 interface OrgChartCanvasProps {
     apiData: { nodes: any[]; edges: any[]; departmentInfo?: any; immediateParentId?: string | null; config?: any; hiddenNodes?: Array<{id: string; fullName: string; jobTitle: string}> } | null;
@@ -270,6 +87,7 @@ const OrgChartCanvasInner = ({
 
     useImperativeHandle(canvasRef, () => ({
         getNodes: () => nodes,
+        getEdges: () => edges,
         focusNode: (nodeId: string) => {
             const node = nodes.find(n => n.id === nodeId);
             if (node) fitView({ nodes: [node], duration: 800, padding: 0.4, minZoom: 0.8 });
@@ -291,6 +109,15 @@ const OrgChartCanvasInner = ({
     const isDesignMode = !isLocked;
     const [hiddenNodeIds, setHiddenNodeIds] = useState<Set<string>>(new Set());
     const [customEdges, setCustomEdges] = useState<any[]>([]);
+
+    // ─── Auto Edge Routing (ELK Hybrid) ───────────────────────────
+    const [autoRouting, setAutoRouting] = useState(true);
+    const { routeEdges, isRouting: isElkRouting, lastRoutingTimeMs } = useElkEdgeRouting({ enabled: autoRouting });
+    const elkBendPointsRef = useRef<Map<string, ElkPoint[]>>(new Map());
+
+    // ─── Version History Panel ────────────────────────────────────
+    const [versionPanelOpen, setVersionPanelOpen] = useState(false);
+
     const [gatekeeperOpen, setGatekeeperOpen] = useState(false);
     const [gatekeeperConn, setGatekeeperConn] = useState<{
         source: string, 
@@ -305,6 +132,92 @@ const OrgChartCanvasInner = ({
         rawTargetNode?: Node
     } | null>(null);
     const [edgeToDelete, setEdgeToDelete] = useState<Edge | null>(null);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+    // Undo/Redo history — captures both node positions and edge waypoints
+    type UndoSnapshot = {
+        nodes: { id: string; x: number; y: number }[];
+        edgeWaypoints: { id: string; waypoints: { x: number; y: number }[] }[];
+    };
+    const undoStackRef = useRef<UndoSnapshot[]>([]);
+    const redoStackRef = useRef<UndoSnapshot[]>([]);
+    const pushUndoSnapshot = useCallback(() => {
+        const snapshot: UndoSnapshot = {
+            nodes: nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+            edgeWaypoints: edges
+                .filter(e => (e.data as any)?.waypoints?.length > 0)
+                .map(e => ({ id: e.id, waypoints: [...(e.data as any).waypoints] })),
+        };
+        undoStackRef.current.push(snapshot);
+        if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+        redoStackRef.current = [];
+    }, [nodes, edges]);
+
+    const restoreSnapshot = useCallback((snapshot: UndoSnapshot) => {
+        setNodes(nds => nds.map(n => {
+            const saved = snapshot.nodes.find(s => s.id === n.id);
+            return saved ? { ...n, position: { x: saved.x, y: saved.y } } : n;
+        }));
+        // Restore edge waypoints
+        const wpMap = new Map(snapshot.edgeWaypoints.map(ew => [ew.id, ew.waypoints]));
+        setEdges(eds => eds.map(e => {
+            const savedWp = wpMap.get(e.id);
+            if (savedWp !== undefined) {
+                return { ...e, data: { ...(e.data || {}), waypoints: savedWp } };
+            }
+            return e;
+        }));
+    }, [setNodes, setEdges]);
+
+    const undo = useCallback(() => {
+        if (undoStackRef.current.length === 0) return;
+        const currentSnapshot: UndoSnapshot = {
+            nodes: nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+            edgeWaypoints: edges
+                .filter(e => (e.data as any)?.waypoints?.length > 0)
+                .map(e => ({ id: e.id, waypoints: [...(e.data as any).waypoints] })),
+        };
+        redoStackRef.current.push(currentSnapshot);
+        const prev = undoStackRef.current.pop()!;
+        restoreSnapshot(prev);
+    }, [nodes, edges, restoreSnapshot]);
+
+    const redo = useCallback(() => {
+        if (redoStackRef.current.length === 0) return;
+        const currentSnapshot: UndoSnapshot = {
+            nodes: nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+            edgeWaypoints: edges
+                .filter(e => (e.data as any)?.waypoints?.length > 0)
+                .map(e => ({ id: e.id, waypoints: [...(e.data as any).waypoints] })),
+        };
+        undoStackRef.current.push(currentSnapshot);
+        const next = redoStackRef.current.pop()!;
+        restoreSnapshot(next);
+    }, [nodes, edges, restoreSnapshot]);
+
+    // Keyboard shortcuts: Ctrl+Z / Ctrl+Y
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (isLocked && !isDesignMode) return;
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            }
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [undo, redo, isLocked, isDesignMode]);
+
+    // Listen for waypoint change events from EditableEdge to push undo snapshots
+    useEffect(() => {
+        const handler = () => pushUndoSnapshot();
+        window.addEventListener('orgchart:before-waypoint-change', handler);
+        return () => window.removeEventListener('orgchart:before-waypoint-change', handler);
+    }, [pushUndoSnapshot]);
 
     const [nodesep, setNodesep] = useState(50);
     const [ranksep, setRanksep] = useState(120);
@@ -362,6 +275,7 @@ const OrgChartCanvasInner = ({
         let newNodeDims = { ...defaultNodeDims };
         let newNodeColors = { ...defaultColors };
         let newNodeLevels = {};
+        let newAutoRouting = true;
 
         // 1. Apply global fallback first (even if we are in dept view)
         if (globalConfig) {
@@ -370,6 +284,7 @@ const OrgChartCanvasInner = ({
             if (globalConfig.nodeDims) newNodeDims = { ...newNodeDims, ...globalConfig.nodeDims };
             if (globalConfig.nodeColors) newNodeColors = { ...newNodeColors, ...globalConfig.nodeColors };
             if (globalConfig.nodeLevels) newNodeLevels = { ...newNodeLevels, ...globalConfig.nodeLevels };
+            if (globalConfig.autoRouting !== undefined) newAutoRouting = globalConfig.autoRouting;
         }
 
         // 2. Apply specific chart config on top (apiData.config is only present if it's a dept chart)
@@ -380,6 +295,7 @@ const OrgChartCanvasInner = ({
             if (conf.nodeDims) newNodeDims = { ...newNodeDims, ...conf.nodeDims };
             if (conf.nodeColors) newNodeColors = { ...newNodeColors, ...conf.nodeColors };
             if (conf.nodeLevels) newNodeLevels = { ...newNodeLevels, ...conf.nodeLevels };
+            if (conf.autoRouting !== undefined) newAutoRouting = conf.autoRouting;
         }
 
         // Apply immediately to state
@@ -393,6 +309,7 @@ const OrgChartCanvasInner = ({
 
         setNodeColors(newNodeColors);
         setNodeLevels(newNodeLevels);
+        setAutoRouting(newAutoRouting);
 
     }, [apiData?.config, globalConfig]);
 
@@ -443,8 +360,9 @@ const OrgChartCanvasInner = ({
     }, [apiData]);
 
     const onNodeDragStop = useCallback((event: any, node: Node) => {
+        pushUndoSnapshot();
         onNodePositionChange?.(node.id, node.position.x, node.position.y);
-    }, [onNodePositionChange]);
+    }, [onNodePositionChange, pushUndoSnapshot]);
 
     const onConnect = useCallback((params: any) => {
         if (isLocked) return;
@@ -518,6 +436,22 @@ const OrgChartCanvasInner = ({
         setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
     }, [setEdges]);
 
+    // After reconnect completes, persist via API and re-layout
+    const onReconnectEnd = useCallback(async (_event: MouseEvent | TouchEvent, edge: Edge, handleType: 'source' | 'target') => {
+        // If the edge was dropped onto empty space, it gets removed by ReactFlow.
+        // We only persist if it still exists in edges state.
+        const stillExists = edges.find(e => e.id === edge.id);
+        if (!stillExists) return;
+
+        // Auto re-layout for clean alignment
+        if (!isLocked) {
+            // Small delay so ReactFlow finishes internal state update
+            setTimeout(() => {
+                setNodes(prev => [...prev]); // trigger re-render
+            }, 50);
+        }
+    }, [edges, isLocked, setNodes]);
+
     const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
         if (isLocked) return;
         if (edge.data && edge.data.overrideId) {
@@ -564,6 +498,7 @@ const OrgChartCanvasInner = ({
                 nodeDims,
                 nodeColors,
                 nodeLevels,
+                autoRouting,
             });
             toast.success('Đã lưu cấu hình thiết kế');
         } catch (error) {
@@ -642,131 +577,66 @@ const OrgChartCanvasInner = ({
 
             const isHorizontal = layoutDirection === 'RIGHT';
 
-            // Styled edges — bezier for clean non-overlapping paths
+            // --- 0. Prepare processed nodes/edges ---
+            let currentNodes = apiData.nodes;
+            const processedNodes = currentNodes;
+
+            // --- 1. Compute Employee Level Map (extracted to hooks) ---
+            const empLevelMap = computeEmployeeLevelMap(processedNodes, apiData.edges);
+
+            // --- 2. Styled edges — using extracted getEdgeStyle ---
             const styledEdges: any[] = [];
             const dedup = new Set<string>();
+
             apiData.edges.forEach(e => {
                 if (e.source === e.target) return;
                 const key = `${e.source}|||${e.target}`;
                 if (dedup.has(key)) return;
                 dedup.add(key);
-                
-                const isEmpToEmp = (() => {
-                    const sNode = apiData.nodes.find((n: any) => n.id === e.source);
-                    const tNode = apiData.nodes.find((n: any) => n.id === e.target);
-                    return sNode?.type === 'employeeNode' && tNode?.type === 'employeeNode';
-                })();
+
+                const edgeStyle = computeEdgeStyle(e.source, e.target, e, apiData.nodes, empLevelMap);
 
                 styledEdges.push({
                     ...e,
                     sourceHandle: e.sourceHandle || 'bottom',
                     targetHandle: e.targetHandle || 'top',
-                    type: e.type || 'smoothstep',
+                    type: (!isLocked || isDesignMode) ? 'editableEdge' : (e.type || 'smoothstep'),
                     pathOptions: { borderRadius: 40 },
                     animated: e.animated !== undefined ? e.animated : false,
-                    reconnectable: true,
-                    style: e.style ? e.style : { strokeWidth: 2, stroke: '#64748b' },
-                    markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: e.data?.isMatrix ? '#10b981' : (e.style?.stroke || '#94a3b8') },
+                    reconnectable: isDesignMode ? 'target' : false,
+                    style: e.style ? e.style : edgeStyle,
+                    data: {
+                        ...(e.data || {}),
+                        targetNodeId: e.target,
+                        isEditMode: !isLocked || isDesignMode,
+                        editable: !isLocked || isDesignMode,
+                        waypoints: e.data?.waypoints || [],
+                    },
+                    markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: edgeStyle.strokeWidth > 2 ? 16 : 12,
+                        height: edgeStyle.strokeWidth > 2 ? 16 : 12,
+                        color: e.data?.isMatrix ? '#10b981' : edgeStyle.stroke,
+                    },
                 });
             });
 
-            // Add Custom Edges
+            // Add Custom Edges (matrix connections)
             customEdges.forEach(ce => {
                 styledEdges.push({
                     id: `e-custom-${ce.source}-${ce.target}`,
                     source: ce.source,
                     target: ce.target,
                     type: 'smoothstep',
-                    pathOptions: { borderRadius: 36 }, 
+                    pathOptions: { borderRadius: 36 },
                     animated: true,
+                    reconnectable: isDesignMode ? 'target' : false,
                     style: { stroke: '#10b981', strokeWidth: 2 },
                     markerEnd: { type: MarkerType.ArrowClosed, width: 11, height: 11, color: '#10b981' },
                 });
             });
 
-            let currentNodes = apiData.nodes;
-            let currentEdges = [...styledEdges];
-            
-            // Department card node intentionally removed — the chart starts from Trưởng Phòng (L1) directly.
-
-            // --- 1. Root Merge DISABLED: Trưởng Phòng renders as a normal white card like all other employees ---
-            // The Department card (green) connects to the Head via edge like all other structure-to-employee edges.
-            const processedNodes = currentNodes;
-            const processedEdges = currentEdges;
-
-            // --- 2. Tính toán Phân quyền 10 cấp (L1 - L10) Dựa theo Nhu cầu User ---
-            const empLevelMap = new Map<string, number>();
-            const rootEmpIds = new Set<string>();
-
-            // Hàm phân loại chức danh theo Layer (L1 - L10)
-            const getTitleLevel = (title?: string): number | null => {
-                if (!title) return null;
-                const t = title.toLowerCase();
-                if (t.includes('chủ tịch')) return 1;
-                if (t.includes('tổng giám đốc') && !t.includes('phó')) return 2;
-                if (t.includes('phó tổng') || t.includes('gđ khối') || t.includes('giám đốc khối') || t.includes('gd khoi') ) return 3;
-                if (t.includes('trưởng phòng') || t.includes('tp.') || t.includes('trưởng ban') || t.includes('giám đốc dự án') || t.includes('qlda') || t.match(/^gđ\s/i) || t.includes('giám đốc')) return 4;
-                if (t.includes('phó phòng') || t.includes('pp.') || t.includes('phó ban')) return 5;
-                if (t.includes('trưởng nhóm') || t.includes('tổ trưởng') || t.includes('giám sát') || t.includes('trưởng bộ phận')) return 6;
-                return null;
-            };
-
-            // Ưu tiên 1: Lấy đúng level dựa vào text Job Title
-            processedNodes.filter(n => n.type === 'employeeNode').forEach(n => {
-                const titleLevel = getTitleLevel((n.data as any)?.jobTitle);
-                if (titleLevel) empLevelMap.set(n.id, titleLevel);
-            });
-
-            // Lọc ra các Employee cắm trực tiếp vào Node Tổ chức để làm rễ (fallback BFS)
-            processedEdges.forEach(e => {
-                const sNode = processedNodes.find(n => n.id === e.source);
-                const tNode = processedNodes.find(n => n.id === e.target);
-                if (sNode && sNode.type !== 'employeeNode' && tNode?.type === 'employeeNode') {
-                    rootEmpIds.add(e.target);
-                }
-            });
-
-            // Gộp thêm nhánh nhân viên không có incoming edges
-            processedNodes.filter(n => n.type === 'employeeNode').forEach(n => {
-                const hasIncoming = processedEdges.some(e => e.target === n.id);
-                if (!hasIncoming && !n.data?.isExternalManager) rootEmpIds.add(n.id);
-            });
-
-            // Assign default levels to root nodes
-            // If a root has an API-supplied customLevel (e.g. "L3"), use it; otherwise fall back to L1
-            let queue = Array.from(rootEmpIds);
-            queue.forEach(id => {
-                if (!empLevelMap.has(id)) {
-                    const node = processedNodes.find(n => n.id === id);
-                    const apiLevel = (node?.data as any)?.customLevel;
-                    if (apiLevel && typeof apiLevel === 'string' && apiLevel.startsWith('L')) {
-                        const parsed = parseInt(apiLevel.slice(1), 10);
-                        if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
-                            empLevelMap.set(id, parsed);
-                            return;
-                        }
-                    }
-                    // Default: only assign L1 if this node truly has no parent among employees
-                    empLevelMap.set(id, 1);
-                }
-            });
-
-            // Fallback: Nếu không parse được title, cộng 1 cấp từ cấp cha (BFS)
-            while (queue.length > 0) {
-                const curr = queue.shift()!;
-                const currLevel = empLevelMap.get(curr) || 1;
-                const children = processedEdges.filter(e => e.source === curr).map(e => e.target);
-                children.forEach(childId => {
-                    const childNode = processedNodes.find(n => n.id === childId);
-                    if (childNode?.type === 'employeeNode') {
-                        if (!empLevelMap.has(childId)) {
-                            const nextLevel = Math.min(currLevel + 1, 10);
-                            empLevelMap.set(childId, nextLevel);
-                        }
-                        queue.push(childId);
-                    }
-                });
-            }
+            const processedEdges = [...styledEdges];
 
             // Visible nodes
             const visibleNodes = processedNodes
@@ -872,6 +742,37 @@ const OrgChartCanvasInner = ({
                 );
 
                 if (!mounted) return;
+
+                // ── ELK Auto Edge Routing (Hybrid) ──────────────────────
+                // After Dagre positions nodes, use ELK to route edges around nodes.
+                // This runs off-main-thread via Web Worker.
+                if (autoRouting && layoutedNodes.length > 0 && cleanEdges.length > 0) {
+                    // Fire-and-forget: route edges async, then inject bend points
+                    routeEdges(
+                        layoutedNodes.map(n => ({
+                            ...n,
+                            measured: { width: (n.data as any)?.width || 272, height: (n.data as any)?.height || 220 },
+                        })),
+                        cleanEdges,
+                    ).then(bendPointsMap => {
+                        if (!mounted) return;
+                        elkBendPointsRef.current = bendPointsMap;
+                        // Inject ELK bend points into edge data
+                        setEdges(prevEdges => prevEdges.map(e => {
+                            const bps = bendPointsMap.get(e.id);
+                            const hasManualWaypoints = (e.data as any)?.waypoints?.length > 0;
+                            if (bps && bps.length > 0 && !hasManualWaypoints) {
+                                return {
+                                    ...e,
+                                    type: 'autoRoutedEdge',
+                                    data: { ...(e.data || {}), elkBendPoints: bps },
+                                };
+                            }
+                            return e;
+                        }));
+                    });
+                }
+
                 setEdges(cleanEdges);
                 setNodes(layoutedNodes);
                 if (layoutTrigger !== prevLayoutTrigger) setPrevLayoutTrigger(layoutTrigger);
@@ -910,7 +811,7 @@ const OrgChartCanvasInner = ({
 
         const timer = setTimeout(build, 30);
         return () => { mounted = false; clearTimeout(timer); };
-    }, [apiData, layoutDirection, collapsedNodeIds, layoutTrigger, nodesep, ranksep, nodeDims, nodeColors, refreshKey, isLocked, hiddenNodeIds]);
+    }, [apiData, layoutDirection, collapsedNodeIds, layoutTrigger, nodesep, ranksep, nodeDims, nodeColors, refreshKey, isLocked, hiddenNodeIds, autoRouting, routeEdges]);
 
     // Trigger fitView AFTER ReactFlow renders the new nodes
     // This fires whenever the counts of nodes change (new chart loaded)
@@ -941,6 +842,7 @@ const OrgChartCanvasInner = ({
                 onEdgesChange={isLocked && !isDesignMode ? undefined : onEdgesChange}
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 nodesDraggable={!isLocked || isDesignMode}
                 nodesConnectable={isDesignMode}
                 edgesReconnectable={isDesignMode}
@@ -951,12 +853,22 @@ const OrgChartCanvasInner = ({
                 minZoom={0.05}
                 maxZoom={2}
                 style={{ background: '#f8fafc' }}
-                onNodeClick={(_, node) => onNodeClick && onNodeClick(node.data)}
+                onNodeClick={(_, node) => {
+                    setSelectedNodeId(prev => prev === node.id ? null : node.id);
+                    onNodeClick && onNodeClick(node.data);
+                }}
+                onPaneClick={() => setSelectedNodeId(null)}
                 onNodeDoubleClick={(_, node) => onNodeDoubleClick && onNodeDoubleClick(node)}
                 onNodeDragStop={onNodeDragStop}
                 onReconnect={onReconnect}
+                onReconnectEnd={onReconnectEnd}
                 onEdgeClick={onEdgeClick}
             >
+                {/* Node spacing guides - rendered inside ReactFlow for hook access */}
+                {(!isLocked || isDesignMode) && selectedNodeId && (
+                    <NodeSpacingGuides selectedNodeId={selectedNodeId} />
+                )}
+
                 {/* Light dot grid */}
                 <Background gap={24} size={1} color="#cbd5e1" style={{ opacity: 0.6 }} />
                 <Controls
@@ -1133,17 +1045,93 @@ const OrgChartCanvasInner = ({
 
                 {/* Zoom indicator */}
                 <Panel position="bottom-right" className="mb-2 mr-2">
-                    <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm flex items-center gap-1">
-                        <span className="text-[11px] font-bold text-slate-400 tracking-widest uppercase">Zoom:</span>
-                        <input
-                            type="number"
-                            min="10" max="400"
-                            value={Math.round(zoom * 100)}
-                            disabled={isLocked && !isDesignMode}
-                            onChange={(e) => setViewport({ x, y, zoom: Number(e.target.value) / 100 })}
-                            className="w-10 text-[11px] font-bold text-slate-700 bg-transparent border-none p-0 text-right focus:ring-0 focus:outline-none"
-                        />
-                        <span className="text-[11px] font-bold text-slate-400 uppercase">%</span>
+                    <div className="flex items-center gap-2">
+                        {/* Auto Routing Toggle */}
+                        <button
+                            onClick={() => setAutoRouting(prev => !prev)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border shadow-sm transition-all duration-200 text-[11px] font-bold tracking-wide select-none',
+                                autoRouting
+                                    ? 'bg-sky-50 border-sky-200 text-sky-700 hover:bg-sky-100'
+                                    : 'bg-white/90 border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                            )}
+                            title={autoRouting ? 'Auto Routing: BẬT — Edges tự động tránh nodes (ELK)' : 'Auto Routing: TẮT — Edges đi thẳng (SmoothStep)'}
+                        >
+                            <Waypoints className="w-3.5 h-3.5" />
+                            <span>Auto</span>
+                            {isElkRouting && (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                            )}
+                        </button>
+
+                        {/* Version History Toggle */}
+                        <button
+                            onClick={() => setVersionPanelOpen(prev => !prev)}
+                            className={cn(
+                                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border shadow-sm transition-all duration-200 text-[11px] font-bold tracking-wide select-none',
+                                versionPanelOpen
+                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+                                    : 'bg-white/90 border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600'
+                            )}
+                            title="Lịch sử phiên bản"
+                        >
+                            <History className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Zoom Indicator */}
+                        <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-slate-200 shadow-sm flex items-center gap-1">
+                            <span className="text-[11px] font-bold text-slate-400 tracking-widest uppercase">Zoom:</span>
+                            <input
+                                type="number"
+                                min="10" max="400"
+                                value={Math.round(zoom * 100)}
+                                disabled={isLocked && !isDesignMode}
+                                onChange={(e) => setViewport({ x, y, zoom: Number(e.target.value) / 100 })}
+                                className="w-10 text-[11px] font-bold text-slate-700 bg-transparent border-none p-0 text-right focus:ring-0 focus:outline-none"
+                            />
+                            <span className="text-[11px] font-bold text-slate-400 uppercase">%</span>
+                        </div>
+                    </div>
+                </Panel>
+
+                {/* ── Legend Panel ── */}
+                <Panel position="bottom-left" className="mb-2 ml-2">
+                    <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-sm px-3 py-2.5 flex flex-col gap-1.5 select-none">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                            <Info className="w-3 h-3 text-slate-400" />
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Chú giải</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-0 border-t-[2.5px] border-slate-700" />
+                            <span className="text-[10px] text-slate-600 font-medium">Báo cáo trực tiếp</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-0 border-t-2 border-dashed border-emerald-500" />
+                            <span className="text-[10px] text-slate-600 font-medium">Đa tuyến (Matrix)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-0 border-t-[1.5px] border-slate-300" />
+                            <span className="text-[10px] text-slate-600 font-medium">Nhân viên cấp dưới</span>
+                        </div>
+                        {isDesignMode && (
+                            <>
+                                <div className="border-t border-slate-100 my-0.5" />
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-0.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white shadow-sm" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-white shadow-sm" />
+                                    </div>
+                                    <span className="text-[10px] text-slate-600 font-medium">Nhận / Gửi kết nối</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-0.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-sky-400 border border-white shadow-sm" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-rose-400 border border-white shadow-sm" />
+                                    </div>
+                                    <span className="text-[10px] text-slate-600 font-medium">Matrix trái / phải</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </Panel>
 
@@ -1382,6 +1370,23 @@ const OrgChartCanvasInner = ({
 
                 {/* MiniMap Removed as requested */}
             </ReactFlow>
+
+            {/* Version History Panel (outside ReactFlow) */}
+            <VersionHistoryPanel
+                isOpen={versionPanelOpen}
+                onClose={() => setVersionPanelOpen(false)}
+                chartKey={apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config'}
+                canManage={isDesignMode}
+                onRestore={(snapshot) => {
+                    // Apply restored snapshot — trigger a refresh
+                    if (snapshot?.config) {
+                        if (snapshot.config.nodesep) setNodesep(snapshot.config.nodesep);
+                        if (snapshot.config.ranksep) setRanksep(snapshot.config.ranksep);
+                    }
+                    setVersionPanelOpen(false);
+                    onOverridesChange?.();
+                }}
+            />
         </div>
     );
 };

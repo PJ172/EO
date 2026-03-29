@@ -532,12 +532,27 @@ export class EmployeeQueryService {
       position: posMap[n.id] ?? n.position,
     }));
 
-    const result = { nodes: mergedNodes, edges };
+    // Load edge waypoints
+    let edgeWaypointMap: Record<string, { x: number; y: number }[]> = {};
+    try {
+      const savedWaypoints = await this.prisma.orgChartEdgeWaypoint.findMany({ where: { chartKey: 'COMPANY' } });
+      savedWaypoints.forEach(w => {
+        const wps = typeof w.waypoints === 'string' ? JSON.parse(w.waypoints) : w.waypoints;
+        if (Array.isArray(wps) && wps.length > 0) edgeWaypointMap[w.edgeId] = wps;
+      });
+    } catch (_) {}
+
+    const mergedEdges = edges.map(e => ({
+      ...e,
+      data: { ...(e.data || {}), waypoints: edgeWaypointMap[e.id] || [] },
+    }));
+
+    const result = { nodes: mergedNodes, edges: mergedEdges };
     await this.cacheManager.set(cacheKey, result, 300000); // 5 minutes cache
     return result;
   }
 
-  async getOrgChartHierarchy(departmentId?: string, chartKey: string = 'global-config') {
+  async getOrgChartHierarchy(departmentId?: string, chartKey: string = 'COMPANY') {
     const cacheKey = `org-chart-hierarchy:${departmentId || 'all'}:${chartKey}`;
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) return cached;
@@ -648,10 +663,7 @@ export class EmployeeQueryService {
             phone: node.phone,
             customLevel: `L${level}`,
           },
-          position:
-            node.uiPositionX !== null && node.uiPositionY !== null
-              ? { x: node.uiPositionX, y: node.uiPositionY }
-              : { x: 0, y: 0 },
+          position: { x: 0, y: 0 }, // Will be merged with per-chart positions below
         });
 
         node.children.forEach((child: any) => {
@@ -684,7 +696,36 @@ export class EmployeeQueryService {
       }
     });
 
-    const result = { nodes, edges, config };
+    // Merge positions from OrgChartNodePosition (per-chart positions)
+    let hierarchyPosMap: Record<string, { x: number; y: number }> = {};
+    try {
+      const savedPositions = await this.prisma.orgChartNodePosition.findMany({
+        where: { chartKey },
+      });
+      savedPositions.forEach((p) => { hierarchyPosMap[p.nodeId] = { x: p.x, y: p.y }; });
+    } catch (_) { /* Table may not exist in older envs */ }
+
+    const mergedNodes = nodes.map(n => ({
+      ...n,
+      position: hierarchyPosMap[n.id] ?? n.position,
+    }));
+
+    // Load edge waypoints
+    let hierarchyEdgeWaypointMap: Record<string, { x: number; y: number }[]> = {};
+    try {
+      const savedWaypoints = await this.prisma.orgChartEdgeWaypoint.findMany({ where: { chartKey } });
+      savedWaypoints.forEach(w => {
+        const wps = typeof w.waypoints === 'string' ? JSON.parse(w.waypoints) : w.waypoints;
+        if (Array.isArray(wps) && wps.length > 0) hierarchyEdgeWaypointMap[w.edgeId] = wps;
+      });
+    } catch (_) {}
+
+    const mergedEdges = edges.map(e => ({
+      ...e,
+      data: { ...(e.data || {}), waypoints: hierarchyEdgeWaypointMap[e.id] || [] },
+    }));
+
+    const result = { nodes: mergedNodes, edges: mergedEdges, config };
     await this.cacheManager.set(cacheKey, result, 60000); // 1 minute cache
     return result;
   }
@@ -918,11 +959,7 @@ export class EmployeeQueryService {
         isExternalManager: !!(emp as any).isExternalManager,
         isGlobalContext: !!(emp as any).isGlobalContext,
       },
-      position: deptPosMap[emp.id] ?? (
-        emp.uiPositionX !== null && emp.uiPositionY !== null
-          ? { x: emp.uiPositionX, y: emp.uiPositionY }
-          : { x: 0, y: 0 }
-      ),
+      position: deptPosMap[emp.id] ?? { x: 0, y: 0 },
     }));
 
     const edges: any[] = [];
@@ -941,10 +978,7 @@ export class EmployeeQueryService {
           employeeCount: employees.filter((e) => e.section?.id === sec.id).length,
           managerEmployeeId: sec.managerEmployeeId,
         },
-        position:
-          sec.uiPositionX !== null && sec.uiPositionY !== null
-            ? { x: sec.uiPositionX, y: sec.uiPositionY }
-            : { x: 0, y: 0 },
+        position: deptPosMap[`section-${sec.id}`] ?? { x: 0, y: 0 },
       });
 
       // Flexible Section Edge: Connects to its human manager if exists, otherwise to Dept Root
@@ -1157,11 +1191,28 @@ export class EmployeeQueryService {
       .filter(n => hiddenIds.has(n.id))
       .map(n => ({ id: n.id, fullName: n.data?.fullName || n.data?.name || 'N/A', jobTitle: n.data?.jobTitle || '' }));
 
+    // Load edge waypoints for this department chart
+    let deptEdgeWaypointMap: Record<string, { x: number; y: number }[]> = {};
+    try {
+      const savedWaypoints = await this.prisma.orgChartEdgeWaypoint.findMany({ where: { chartKey } });
+      savedWaypoints.forEach(w => {
+        const wps = typeof w.waypoints === 'string' ? JSON.parse(w.waypoints) : w.waypoints;
+        if (Array.isArray(wps) && wps.length > 0) deptEdgeWaypointMap[w.edgeId] = wps;
+      });
+    } catch (_) {}
+
+    const filteredEdges = edges
+      .filter(e => !hiddenIds.has(e.source) && !hiddenIds.has(e.target))
+      .map(e => ({
+        ...e,
+        data: { ...(e.data || {}), waypoints: deptEdgeWaypointMap[e.id] || [] },
+      }));
+
     const result = { 
       departmentInfo: department,
       immediateParentId: null, 
       nodes: nodes.filter(n => !hiddenIds.has(n.id)), 
-      edges: edges.filter(e => !hiddenIds.has(e.source) && !hiddenIds.has(e.target)), 
+      edges: filteredEdges, 
       config,
       hiddenNodes: hiddenNodesList,
     };

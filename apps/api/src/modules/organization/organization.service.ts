@@ -390,8 +390,29 @@ export class OrganizationService {
     } catch (error) {
       throw new BadRequestException('Lỗi khi lưu tọa độ: ' + (error.message || ''));
     }
-    await this.cacheManager.del('org_chart_structure');
+    // Clear ALL related caches to prevent stale data after save
+    await this.invalidateChartCaches(chartKey);
     return { success: true };
+  }
+
+  /** Clear all chart-related caches for a given chartKey */
+  private async invalidateChartCaches(chartKey: string) {
+    const keysToDelete = [
+      'org_chart_structure',
+      `org_chart_hierarchy:all:${chartKey}`,
+      `org_chart_hierarchy:all:global-config`,
+      `org_chart_hierarchy:all:COMPANY`,
+    ];
+    // If department-specific, also clear dept caches
+    if (chartKey.startsWith('DEPT-')) {
+      const deptId = chartKey.replace('DEPT-', '');
+      keysToDelete.push(
+        `org-chart:dept:${deptId}:${chartKey}`,
+        `org_chart_hierarchy:${deptId}:global-config`,
+        `org_chart_hierarchy:${deptId}:${chartKey}`,
+      );
+    }
+    await Promise.all(keysToDelete.map(k => this.cacheManager.del(k)));
   }
 
   async getNodePositionsByChart(chartKey: string): Promise<Record<string, { x: number; y: number }>> {
@@ -622,6 +643,61 @@ export class OrganizationService {
 
     return override;
   }
-}
 
+  async getEdgeWaypoints(chartKey: string) {
+    try {
+      const records = await this.prisma.orgChartEdgeWaypoint.findMany({
+        where: { chartKey },
+      });
+      const result: Record<string, { x: number; y: number }[]> = {};
+      records.forEach(r => {
+        const wps = typeof r.waypoints === 'string' ? JSON.parse(r.waypoints) : r.waypoints;
+        if (Array.isArray(wps) && wps.length > 0) {
+          result[r.edgeId] = wps;
+        }
+      });
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  async saveEdgeWaypoints(chartKey: string, edges: { edgeId: string; waypoints: { x: number; y: number }[] }[]) {
+    // --- Input Validation ---
+    if (!chartKey) throw new BadRequestException('chartKey là bắt buộc');
+    if (edges.length > 500) throw new BadRequestException('Tối đa 500 edges mỗi lần lưu');
+
+    for (const e of edges) {
+      if (!e.edgeId) throw new BadRequestException('edgeId là bắt buộc');
+      if (e.waypoints && e.waypoints.length > 20) {
+        throw new BadRequestException(`Edge ${e.edgeId}: tối đa 20 waypoints`);
+      }
+      if (e.waypoints) {
+        for (const wp of e.waypoints) {
+          if (Math.abs(wp.x) > 50000 || Math.abs(wp.y) > 50000) {
+            throw new BadRequestException(`Edge ${e.edgeId}: tọa độ vượt giới hạn (±50,000)`);
+          }
+        }
+      }
+    }
+
+    const operations = edges.map(e => {
+      if (!e.waypoints || e.waypoints.length === 0) {
+        return this.prisma.orgChartEdgeWaypoint.deleteMany({
+          where: { chartKey, edgeId: e.edgeId },
+        });
+      }
+      return this.prisma.orgChartEdgeWaypoint.upsert({
+        where: { chartKey_edgeId: { chartKey, edgeId: e.edgeId } },
+        update: { waypoints: e.waypoints },
+        create: { chartKey, edgeId: e.edgeId, waypoints: e.waypoints },
+      });
+    });
+
+    await this.prisma.$transaction(operations);
+    // Clear caches after save
+    await this.invalidateChartCaches(chartKey);
+    return { success: true, count: edges.length };
+  }
+}
 

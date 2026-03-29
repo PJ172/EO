@@ -31,6 +31,7 @@ const PERMISSION_LABELS: Record<string, string> = {
   DEPARTMENT_READ: 'Xem phòng ban',
   DEPARTMENT_MANAGE: 'Quản lý phòng ban',
   ORGCHART_VIEW: 'Xem sơ đồ tổ chức',
+  ORGCHART_MANAGE: 'Quản lý sơ đồ tổ chức',
   DOCUMENT_READ: 'Xem tài liệu',
   DOCUMENT_CREATE: 'Tạo tài liệu',
   DOCUMENT_UPDATE: 'Cập nhật tài liệu',
