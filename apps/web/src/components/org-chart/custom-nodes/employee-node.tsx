@@ -102,8 +102,8 @@ interface EmployeeNodeProps {
 // Shared handle class for LOCK MODE: fully invisible + no pointer events
 const LOCK_HANDLE = '!w-2.5 !h-2.5 !bg-transparent !border-transparent !shadow-none opacity-0 pointer-events-none';
 // Design mode: visible colored handles
-const DESIGN_HANDLE_T = '!w-3 !h-3 !border-2 !bg-amber-400 !border-white shadow-sm';
-const DESIGN_HANDLE_B = '!w-3 !h-3 !border-2 !bg-emerald-400 !border-white shadow-sm';
+const DESIGN_HANDLE_T = '!w-3 !h-3 !border-2 !bg-emerald-400 !border-white shadow-sm';  // GREEN = Parent point (connects up)
+const DESIGN_HANDLE_B = '!w-3 !h-3 !border-2 !bg-amber-400 !border-white shadow-sm';    // AMBER = Child point (connects down)
 const DESIGN_HANDLE_L = '!w-3 !h-3 !border-2 !bg-sky-400 !border-white shadow-sm hover:scale-125 z-50';
 const DESIGN_HANDLE_R = '!w-3 !h-3 !border-2 !bg-purple-400 !border-white shadow-sm hover:scale-125 z-50';
 
@@ -122,7 +122,7 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
     return (
         <div
             className={cn(
-                "relative flex flex-col items-center justify-between p-3 rounded-2xl border-2 transition-all duration-300 shadow-lg group",
+                "relative flex flex-col items-center justify-between p-3 rounded-2xl border-2 transition-all duration-300 shadow-lg group overflow-visible",
                 !dm && style.card,
                 dm && "hover:border-amber-400 cursor-move",
                 data.isHidden && "opacity-40 grayscale-[0.5]",
@@ -187,13 +187,13 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
             <Handle type="target" position={Position.Left} id="left"
                 className={dm ? DESIGN_HANDLE_L : LOCK_HANDLE} />
             <Handle type="source" position={Position.Left} id="left-source"
-                className={LOCK_HANDLE} />
+                className={dm ? DESIGN_HANDLE_L : LOCK_HANDLE} />
 
             {/* Right — matrix/secondary */}
             <Handle type="source" position={Position.Right} id="right"
                 className={dm ? DESIGN_HANDLE_R : LOCK_HANDLE} />
             <Handle type="target" position={Position.Right} id="right-target"
-                className={LOCK_HANDLE} />
+                className={dm ? DESIGN_HANDLE_R : LOCK_HANDLE} />
 
             {/* Tier accent line — top gradient bar */}
             {!data.customBg && (tier === 'director' || tier === 'manager') && (
@@ -247,11 +247,14 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                 </div>
             </div>
 
-            {/* Collapse toggle — z-50 to avoid edge overlap */}
+            {/* Collapse toggle — positioned ON the connecting line between parent and child */}
             {data.hasChildren && (
                 <button
-                    className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 bg-white border border-slate-200 hover:border-blue-400 rounded-full flex justify-center items-center shadow-md z-50 transition-all hover:scale-110 text-slate-400 hover:text-blue-500 active:scale-95 pointer-events-auto"
-                    style={{ width: '26px', height: '26px' }}
+                    className={`absolute left-1/2 -translate-x-1/2 rounded-full flex justify-center items-center shadow-lg z-50 transition-all duration-200 pointer-events-auto ${data.isCollapsed
+                        ? 'bg-blue-50 border-2 border-blue-400 text-blue-600 hover:bg-blue-100 hover:border-blue-500 hover:scale-125'
+                        : 'bg-white border border-slate-300 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:scale-110'
+                    } active:scale-95`}
+                    style={{ width: data.isCollapsed ? '30px' : '24px', height: data.isCollapsed ? '30px' : '24px', bottom: '-32px' }}
                     onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
@@ -259,9 +262,9 @@ export default memo(function EmployeeNode({ data, id, targetPosition = Position.
                     }}
                 >
                     {data.isCollapsed ? (
-                        <span className="text-base leading-none font-bold">+</span>
+                        <span className="text-sm leading-none font-black">+</span>
                     ) : (
-                        <span className="text-lg leading-none font-bold mt-[-3px]">-</span>
+                        <span className="text-base leading-none font-bold" style={{marginTop: '-2px'}}>−</span>
                     )}
                 </button>
             )}

@@ -16,6 +16,7 @@ import {
     useReactFlow,
     ReactFlowProvider,
     ConnectionLineType,
+    reconnectEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Loader2, GripVertical, LayoutList, Ruler, Edit3, Save, Users, Building2, Briefcase, GitBranch, Image as ImageIcon, ShieldAlert } from 'lucide-react';
@@ -40,7 +41,7 @@ import StructureNode from './custom-nodes/structure-node';
 import EmployeeNode from './custom-nodes/employee-node';
 
 const nodeTypes = { orgNode: StructureNode, employeeNode: EmployeeNode };
-const fitViewOptions = { maxZoom: 0.85, padding: 0.35 };
+const fitViewOptions = { maxZoom: 1.2, minZoom: 0.3, padding: 0.15 };
 
 // ─────────────────────────────────────────────────────────────
 // Dagre Graph Layout — Robust Coordinate Spacing Spawner
@@ -54,7 +55,7 @@ interface LayoutOptions {
     ranksep: number;
 }
 
-function treeLayout(rootId: string, allNodeIds: string[], edges: Edge[], isHorizontal: boolean, options: LayoutOptions, nodeDimsMap: Map<string, {w: number, h: number}>): Map<string, {x: number, y: number}> {
+function treeLayout(rootId: string, allNodeIds: string[], edges: Edge[], isHorizontal: boolean, options: LayoutOptions, nodeDimsMap: Map<string, {w: number, h: number}>, nodeLevelsMap?: Record<string, string>): Map<string, {x: number, y: number}> {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({ 
@@ -68,11 +69,18 @@ function treeLayout(rootId: string, allNodeIds: string[], edges: Edge[], isHoriz
 
     nonSectionNodeIds.forEach(id => {
         const dims = nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H };
-        dagreGraph.setNode(id, { width: dims.w, height: dims.h });
+        // Guard: dagre crashes if width or height is 0
+        const w = Math.max(dims.w || NODE_W, 10);
+        const h = Math.max(dims.h || NODE_H, 10);
+        dagreGraph.setNode(id, { width: w, height: h });
     });
     nonSectionEdges.forEach(e => dagreGraph.setEdge(e.source, e.target));
 
-    dagre.layout(dagreGraph);
+    try {
+        dagre.layout(dagreGraph);
+    } catch (err) {
+        console.warn('[dagre] Layout error (likely zero-dimension node):', err);
+    }
 
     const result = new Map<string, {x: number, y: number}>();
     allNodeIds.forEach(id => {
@@ -119,6 +127,99 @@ function treeLayout(rootId: string, allNodeIds: string[], edges: Edge[], isHoriz
                 }
             }
         });
+    }
+
+    // ── Layer Alignment: Snap same-layer nodes to equal horizontal rows ──
+    if (nodeLevelsMap && Object.keys(nodeLevelsMap).length > 0 && !isHorizontal) {
+        const layerGroups = new Map<string, string[]>();
+        allNodeIds.forEach(id => {
+            const layer = nodeLevelsMap[id];
+            if (layer) {
+                if (!layerGroups.has(layer)) layerGroups.set(layer, []);
+                layerGroups.get(layer)!.push(id);
+            }
+        });
+
+        layerGroups.forEach((ids: string[]) => {
+            const positions = ids.map((id: string) => result.get(id)).filter(Boolean) as {x: number, y: number}[];
+            if (positions.length < 2) return;
+            const targetY = Math.min(...positions.map((p: {x: number, y: number}) => p.y));
+            ids.forEach((id: string) => {
+                const pos = result.get(id);
+                if (pos) result.set(id, { x: pos.x, y: targetY });
+            });
+        });
+
+        // ── X-axis overlap resolution: evenly space nodes within each layer ──
+        layerGroups.forEach((ids: string[]) => {
+            if (ids.length < 2) return;
+            // Sort by current X position
+            const sorted = ids
+                .map((id: string) => ({ id, pos: result.get(id)!, dims: nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H } }))
+                .filter((n: any) => n.pos)
+                .sort((a: any, b: any) => a.pos.x - b.pos.x);
+
+            // Check and fix overlaps: push nodes right if they overlap
+            for (let i = 1; i < sorted.length; i++) {
+                const prev = sorted[i - 1];
+                const curr = sorted[i];
+                const minX = prev.pos.x + prev.dims.w + options.nodesep;
+                if (curr.pos.x < minX) {
+                    curr.pos.x = minX;
+                    result.set(curr.id, { x: curr.pos.x, y: curr.pos.y });
+                }
+            }
+
+            // Re-center the group around the original midpoint
+            const firstX = sorted[0].pos.x;
+            const lastX = sorted[sorted.length - 1].pos.x + sorted[sorted.length - 1].dims.w;
+            const groupWidth = lastX - firstX;
+            const origFirstX = Math.min(...ids.map((id: string) => result.get(id)?.x ?? 0));
+            const origLastEntry = ids.reduce((max: number, id: string) => {
+                const p = result.get(id);
+                const d = nodeDimsMap.get(id) || { w: NODE_W, h: NODE_H };
+                return p && (p.x + d.w) > max ? (p.x + d.w) : max;
+            }, 0);
+            // Keep original center
+            const origCenter = (origFirstX + origLastEntry) / 2;
+            const newCenter = firstX + groupWidth / 2;
+            const shiftX = origCenter - newCenter;
+            if (Math.abs(shiftX) > 1) {
+                sorted.forEach((n: any) => {
+                    result.set(n.id, { x: n.pos.x + shiftX, y: n.pos.y });
+                });
+            }
+        });
+
+        // Prevent vertical overlap between layers
+        const layerYs = new Map<string, number>();
+        layerGroups.forEach((ids: string[], layer: string) => {
+            const pos = result.get(ids[0]);
+            if (pos) layerYs.set(layer, pos.y);
+        });
+        const sortedLayers = [...layerYs.entries()].sort((a, b) => a[1] - b[1]);
+        for (let i = 1; i < sortedLayers.length; i++) {
+            const prevLayer = sortedLayers[i - 1][0];
+            const currLayer = sortedLayers[i][0];
+            const prevIds = layerGroups.get(prevLayer) || [];
+            const currIds = layerGroups.get(currLayer) || [];
+            let prevMaxBottom = 0;
+            prevIds.forEach((id: string) => {
+                const pos = result.get(id);
+                const dims = nodeDimsMap.get(id) || { w: 272, h: 220 };
+                if (pos) prevMaxBottom = Math.max(prevMaxBottom, pos.y + dims.h);
+            });
+            const currY = result.get(currIds[0])?.y ?? 0;
+            const minGap = options.ranksep;
+            if (currY < prevMaxBottom + minGap) {
+                const shift = (prevMaxBottom + minGap) - currY;
+                currIds.forEach((id: string) => {
+                    const pos = result.get(id);
+                    if (pos) result.set(id, { x: pos.x, y: pos.y + shift });
+                });
+                sortedLayers[i][1] = currY + shift;
+            }
+        }
     }
 
     // Center the whole tree
@@ -173,7 +274,11 @@ const OrgChartCanvasInner = ({
             const node = nodes.find(n => n.id === nodeId);
             if (node) fitView({ nodes: [node], duration: 800, padding: 0.4, minZoom: 0.8 });
         },
-        getConfig: () => ({ nodesep, ranksep, zoom, nodeDims, nodeColors })
+        getConfig: () => ({ nodesep, ranksep, zoom, nodeDims, nodeColors, nodeLevels }),
+        saveConfig: () => {
+            const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
+            return apiClient.post(`/employees/org-chart/config/${chartKey}`, { nodesep, ranksep, zoom, nodeDims, nodeColors, nodeLevels });
+        }
     }));
 
     const [layoutDirection, setLayoutDirection] = useState<'RIGHT' | 'DOWN'>('DOWN');
@@ -227,16 +332,6 @@ const OrgChartCanvasInner = ({
         DEPARTMENT: { bg: 'linear-gradient(135deg,#14532d 0%,#16a34a 50%,#22c55e 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         SECTION:    { bg: 'linear-gradient(135deg,#0c4a6e 0%,#0284c7 50%,#0ea5e9 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
         EMPLOYEE:   { bg: '#ffffff', text: '#1e293b', border: '#e2e8f0' },
-        L1:         { bg: 'linear-gradient(135deg,#9f1239 0%,#e11d48 50%,#fb7185 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L2:         { bg: 'linear-gradient(135deg,#9a3412 0%,#ea580c 50%,#fb923c 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L3:         { bg: 'linear-gradient(135deg,#854d0e 0%,#d97706 50%,#fbbf24 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L4:         { bg: 'linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L5:         { bg: 'linear-gradient(135deg,#115e59 0%,#0d9488 50%,#14b8a6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L6:         { bg: 'linear-gradient(135deg,#0c4a6e 0%,#0284c7 50%,#0ea5e9 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L7:         { bg: 'linear-gradient(135deg,#334155 0%,#475569 50%,#64748b 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L8:         { bg: 'linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#8b5cf6 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L9:         { bg: 'linear-gradient(135deg,#831843 0%,#be185d 50%,#ec4899 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
-        L10:        { bg: 'linear-gradient(135deg,#064e3b 0%,#047857 50%,#10b981 100%)', text: '#ffffff', border: 'rgba(255,255,255,0.12)' },
     };
     const [nodeColors, setNodeColors] = useState<Record<string, { bg: string; text: string; border: string }>>(defaultColors);
     const [nodeLevels, setNodeLevels] = useState<Record<string, string>>({});
@@ -259,40 +354,47 @@ const OrgChartCanvasInner = ({
         { label: 'Warm Sand',    bg: 'linear-gradient(135deg,#fefce8 0%,#fef9c3 80%,#fef08a 100%)',   text: '#713f12', border: '#fde68a' },
     ];
 
-    // Initialize state from apiData (config and overrides)
+        // Completely recalculate config state whenever apiData or globalConfig changes
+    // This prevents config bleeding between different department charts or company chart
     useEffect(() => {
+        let newNodesep = 50;
+        let newRanksep = 120;
+        let newNodeDims = { ...defaultNodeDims };
+        let newNodeColors = { ...defaultColors };
+        let newNodeLevels = {};
+
+        // 1. Apply global fallback first (even if we are in dept view)
+        if (globalConfig) {
+            if (globalConfig.nodesep) newNodesep = globalConfig.nodesep;
+            if (globalConfig.ranksep) newRanksep = globalConfig.ranksep;
+            if (globalConfig.nodeDims) newNodeDims = { ...newNodeDims, ...globalConfig.nodeDims };
+            if (globalConfig.nodeColors) newNodeColors = { ...newNodeColors, ...globalConfig.nodeColors };
+            if (globalConfig.nodeLevels) newNodeLevels = { ...newNodeLevels, ...globalConfig.nodeLevels };
+        }
+
+        // 2. Apply specific chart config on top (apiData.config is only present if it's a dept chart)
         if (apiData?.config) {
             const conf = apiData.config;
-            if (conf.nodesep) setNodesep(conf.nodesep);
-            if (conf.ranksep) setRanksep(conf.ranksep);
-            if (conf.nodeDims) setNodeDims(prev => ({ ...prev, ...conf.nodeDims }));
-            if (conf.nodeColors) setNodeColors(prev => ({ ...prev, ...conf.nodeColors }));
-            if (conf.nodeLevels) setNodeLevels(prev => ({ ...prev, ...conf.nodeLevels }));
+            if (conf.nodesep) newNodesep = conf.nodesep;
+            if (conf.ranksep) newRanksep = conf.ranksep;
+            if (conf.nodeDims) newNodeDims = { ...newNodeDims, ...conf.nodeDims };
+            if (conf.nodeColors) newNodeColors = { ...newNodeColors, ...conf.nodeColors };
+            if (conf.nodeLevels) newNodeLevels = { ...newNodeLevels, ...conf.nodeLevels };
         }
-        
-        // Handle overrides from apiData if available
-        // Note: In a real implementation, the backend might already have filtered nodes/edges,
-        // but for local state synchronization (to see checkmarks/toggle state), we update here.
-        // For now, we assume apiData already reflects overrides, but we keep local state for editing.
-    }, [apiData]);
 
-    // Initialize state with global config (fallback)
-    useEffect(() => {
-        if (globalConfig) {
-            if (globalConfig.nodesep) {
-                setNodesep(globalConfig.nodesep);
-                setPrevNodesep(globalConfig.nodesep);
-            }
-            if (globalConfig.ranksep) {
-                setRanksep(globalConfig.ranksep);
-                setPrevRanksep(globalConfig.ranksep);
-            }
-            if (globalConfig.nodeDims && Object.keys(globalConfig.nodeDims).length > 0) {
-                setNodeDims(prev => ({ ...prev, ...globalConfig.nodeDims }));
-                prevNodeDimsRef.current = globalConfig.nodeDims;
-            }
-        }
-    }, [globalConfig]);
+        // Apply immediately to state
+        setNodesep(newNodesep);
+        setPrevNodesep(newNodesep);
+        setRanksep(newRanksep);
+        setPrevRanksep(newRanksep);
+        
+        setNodeDims(newNodeDims);
+        prevNodeDimsRef.current = newNodeDims;
+
+        setNodeColors(newNodeColors);
+        setNodeLevels(newNodeLevels);
+
+    }, [apiData?.config, globalConfig]);
 
     const [showSpacingControls, setShowSpacingControls] = useState(false);
 
@@ -350,23 +452,57 @@ const OrgChartCanvasInner = ({
         const sNode = nodes.find(n => n.id === params.source);
         const tNode = nodes.find(n => n.id === params.target);
         if (!sNode || !tNode) return;
-        
-        let empNode = tNode;
-        let mgrNode = sNode;
-        
-        // Reverse detection logic: if dragging from employee to structural node
-        if (sNode.type === 'employeeNode' && (tNode.type === 'orgNode' || tNode.id.includes('company-') || tNode.id.includes('factory-') || tNode.id.includes('department-'))) {
-             empNode = sNode;
-             mgrNode = tNode;
+
+        // Determine who is the employee (lower rank) and who is the manager (higher rank)
+        let empNode;
+        let mgrNode;
+
+        const sIsEmp = sNode.type === 'employeeNode';
+        const tIsEmp = tNode.type === 'employeeNode';
+
+        if (sIsEmp && !tIsEmp) {
+            empNode = sNode; mgrNode = tNode;
+        } else if (!sIsEmp && tIsEmp) {
+            empNode = tNode; mgrNode = sNode;
+        } else if (sIsEmp && tIsEmp) {
+            // Both employees — use level (lower number = higher rank = manager)
+            const sLevel = (sNode.data as any)?.level ?? 99;
+            const tLevel = (tNode.data as any)?.level ?? 99;
+            const sY = sNode.position?.y ?? 0;
+            const tY = tNode.position?.y ?? 0;
+
+            if (sLevel !== tLevel) {
+                empNode = sLevel > tLevel ? sNode : tNode;
+                mgrNode = sLevel > tLevel ? tNode : sNode;
+            } else if (Math.abs(sY - tY) > 20) {
+                empNode = sY > tY ? sNode : tNode;
+                mgrNode = sY > tY ? tNode : sNode;
+            } else {
+                empNode = sNode; mgrNode = tNode;
+            }
+        } else {
+            empNode = tNode; mgrNode = sNode;
         }
 
-        const isMatrixHint = params.targetHandle === 'left' || params.targetHandle === 'right' || params.sourceHandle === 'left' || params.sourceHandle === 'right';
+        const isMatrixHint = (params.targetHandle || '').startsWith('left') || (params.targetHandle || '').startsWith('right') || (params.sourceHandle || '').startsWith('left') || (params.sourceHandle || '').startsWith('right');
+
+        console.log('[onConnect] Employee:', (empNode.data as any)?.fullName, '→ Manager:', (mgrNode.data as any)?.fullName);
+
+        
+        // Store handles exactly as ReactFlow reported them - no swapping
+        // gatekeeperConn.source = employee, gatekeeperConn.target = manager
+        // But for the EDGE we need: source=manager(bottom), target=employee(top)
+        // So we track which raw handle belongs to which node
+        const mgrIsSource = params.source === mgrNode.id;
+        const mgrHandleId = mgrIsSource ? params.sourceHandle : params.targetHandle;
+        const empHandleId = mgrIsSource ? params.targetHandle : params.sourceHandle;
 
         setGatekeeperConn({
             source: empNode.id,
             target: mgrNode.id,
-            sourceHandle: params.sourceHandle,
-            targetHandle: params.targetHandle,
+            // Store as: sourceHandle = manager's handle (for edge source), targetHandle = employee's handle (for edge target)
+            sourceHandle: mgrHandleId,
+            targetHandle: empHandleId,
             sourceLabel: (empNode.data as any)?.fullName || (empNode.data as any)?.name || (empNode.data as any)?.label || 'Nhân sự',
             targetLabel: (mgrNode.data as any)?.fullName || (mgrNode.data as any)?.name || (mgrNode.data as any)?.label || 'Người quản lý',
             targetType: mgrNode.type || 'employeeNode',
@@ -377,6 +513,11 @@ const OrgChartCanvasInner = ({
         setGatekeeperOpen(true);
     }, [isLocked, nodes]);
 
+    // Handle edge reconnection (drag edge endpoint to new handle)
+    const onReconnect = useCallback((oldEdge: Edge, newConnection: any) => {
+        setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+    }, [setEdges]);
+
     const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
         if (isLocked) return;
         if (edge.data && edge.data.overrideId) {
@@ -384,6 +525,10 @@ const OrgChartCanvasInner = ({
         }
     }, [isLocked]);
 
+
+    const handleLevelChange = useCallback((nodeId: string, level: string) => {
+        setNodeLevels((prev) => ({ ...prev, [nodeId]: level }));
+    }, []);
 
     const onHideNode = useCallback(async (nodeId: string) => {
         let newSet: Set<string>;
@@ -398,7 +543,7 @@ const OrgChartCanvasInner = ({
         // Auto save hidden status
         const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
         try {
-            await apiClient.post(`/organization/config/${chartKey}/hidden`, {
+            await apiClient.post(`/employees/org-chart/overrides/${chartKey}`, {
                 // @ts-ignore
                 hiddenNodeIds: Array.from(newSet)
             });
@@ -431,39 +576,52 @@ const OrgChartCanvasInner = ({
         if (!gatekeeperConn) return;
 
         const getRealEmployeeId = (nodeId: string, rawNode?: Node) => {
-            if (nodeId.startsWith('employee-')) return nodeId.replace('employee-', '');
-            if (rawNode?.data) {
-                const data = rawNode.data as any;
-                if (data.manager?.id) return data.manager.id;
-                if (data.managerEmployeeId) return data.managerEmployeeId;
-            }
-            return nodeId;
-        };
+              if (nodeId.startsWith('employee-')) return nodeId.replace('employee-', '');
+              if (rawNode?.type === 'employeeNode') {
+                  const data = rawNode.data as any;
+                  return data.id || nodeId;
+              }
+              if (rawNode?.data) {
+                  const data = rawNode.data as any;
+                  if (data.manager?.id) return data.manager.id;
+                  if (data.managerEmployeeId) return data.managerEmployeeId;
+              }
+              return nodeId;
+          };
 
-        const realSourceId = getRealEmployeeId(gatekeeperConn.source, gatekeeperConn.rawSourceNode);
-        let realTargetId = getRealEmployeeId(gatekeeperConn.target, gatekeeperConn.rawTargetNode);
+          const realSourceId = getRealEmployeeId(gatekeeperConn.source, gatekeeperConn.rawSourceNode);
+          let realTargetId = getRealEmployeeId(gatekeeperConn.target, gatekeeperConn.rawTargetNode);
 
-        const endpoint = type === 'HR_CORE' ? '/organization/move' : '/organization/overrides/matrix';
-        
-        const actionPayload = type === 'HR_CORE' ? 
-            { sourceId: realSourceId, targetId: realTargetId } :
-            { 
-                employeeId: realSourceId, 
-                action: type === 'MATRIX' ? 'ADD_DOTTED_LINE' : 'MOVE_NODE', 
-                targetManagerId: realTargetId,
-                targetHandle: `${gatekeeperConn.sourceHandle || 'bottom'}:${gatekeeperConn.targetHandle || 'top'}`
-            };
+          const endpoint = type === 'HR_CORE' ? '/organization/move' : '/organization/overrides/matrix';
 
-        try {
-             await apiClient.post(endpoint, actionPayload);
-             toast.success('Đã cập nhật liên kết cấu trúc.');
-             setGatekeeperOpen(false);
-             setGatekeeperConn(null);
-             if (onOverridesChange) onOverridesChange();
-        } catch (err: any) {
-             toast.error('Lỗi thiết lập liên kết!');
-        }
-    };
+          const actionPayload = type === 'HR_CORE' ? 
+              { sourceId: realSourceId, targetId: realTargetId } : 
+              { 
+                  employeeId: realSourceId, 
+                  action: type === 'MATRIX' ? 'ADD_DOTTED_LINE' : 'MOVE_NODE', 
+                  targetManagerId: realTargetId,
+                  targetHandle: (() => {
+                      // Normalize handle IDs: 'bottom-target' -> 'bottom', 'left-source' -> 'left'
+                      const norm = (h: string | null | undefined, fallback: string) => {
+                          if (!h) return fallback;
+                          return h.replace(/-source$/, '').replace(/-target$/, '');
+                      };
+                      return norm(gatekeeperConn.sourceHandle, 'bottom') + ':' + norm(gatekeeperConn.targetHandle, 'top');
+                  })()
+              };
+
+          console.log('[confirmMatrix] Sending:', JSON.stringify(actionPayload));
+
+          try {
+               await apiClient.post(endpoint, actionPayload);
+               toast.success(type === 'MATRIX' ? 'Đã thiết lập báo cáo Đa tuyến (Matrix).' : 'Đã thay đổi hiển thị Tùy chỉnh (Visual).');
+               setGatekeeperOpen(false);
+               setGatekeeperConn(null);
+               if (onOverridesChange) onOverridesChange();
+          } catch (err: any) {
+               toast.error(err.response?.data?.message || 'Lỗi thiết lập liên kết!');
+          }
+      };
 
     useEffect(() => {
         if (!apiData || apiData.nodes.length === 0) {
@@ -501,14 +659,14 @@ const OrgChartCanvasInner = ({
 
                 styledEdges.push({
                     ...e,
-                    // Pin handles: source bottom → target top to prevent sibling horizontal edges
                     sourceHandle: e.sourceHandle || 'bottom',
                     targetHandle: e.targetHandle || 'top',
-                    type: e.type || (isEmpToEmp ? 'bezier' : 'smoothstep'),
-                    pathOptions: isEmpToEmp ? {} : { borderRadius: 40 },
+                    type: e.type || 'smoothstep',
+                    pathOptions: { borderRadius: 40 },
                     animated: e.animated !== undefined ? e.animated : false,
+                    reconnectable: true,
                     style: e.style ? e.style : { strokeWidth: 2, stroke: '#64748b' },
-                    markerEnd: e.data?.isMatrix ? undefined : { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#64748b' },
+                    markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: e.data?.isMatrix ? '#10b981' : (e.style?.stroke || '#94a3b8') },
                 });
             });
 
@@ -536,11 +694,30 @@ const OrgChartCanvasInner = ({
             const processedNodes = currentNodes;
             const processedEdges = currentEdges;
 
-            // --- 2. Tính toán Phân quyền 7 cấp (L1 - L7) BFS ---
+            // --- 2. Tính toán Phân quyền 10 cấp (L1 - L10) Dựa theo Nhu cầu User ---
             const empLevelMap = new Map<string, number>();
             const rootEmpIds = new Set<string>();
 
-            // Lọc ra các Employee cắm trực tiếp vào Node Tổ chức (Phòng/Ban/Bộ phận)
+            // Hàm phân loại chức danh theo Layer (L1 - L10)
+            const getTitleLevel = (title?: string): number | null => {
+                if (!title) return null;
+                const t = title.toLowerCase();
+                if (t.includes('chủ tịch')) return 1;
+                if (t.includes('tổng giám đốc') && !t.includes('phó')) return 2;
+                if (t.includes('phó tổng') || t.includes('gđ khối') || t.includes('giám đốc khối') || t.includes('gd khoi') ) return 3;
+                if (t.includes('trưởng phòng') || t.includes('tp.') || t.includes('trưởng ban') || t.includes('giám đốc dự án') || t.includes('qlda') || t.match(/^gđ\s/i) || t.includes('giám đốc')) return 4;
+                if (t.includes('phó phòng') || t.includes('pp.') || t.includes('phó ban')) return 5;
+                if (t.includes('trưởng nhóm') || t.includes('tổ trưởng') || t.includes('giám sát') || t.includes('trưởng bộ phận')) return 6;
+                return null;
+            };
+
+            // Ưu tiên 1: Lấy đúng level dựa vào text Job Title
+            processedNodes.filter(n => n.type === 'employeeNode').forEach(n => {
+                const titleLevel = getTitleLevel((n.data as any)?.jobTitle);
+                if (titleLevel) empLevelMap.set(n.id, titleLevel);
+            });
+
+            // Lọc ra các Employee cắm trực tiếp vào Node Tổ chức để làm rễ (fallback BFS)
             processedEdges.forEach(e => {
                 const sNode = processedNodes.find(n => n.id === e.source);
                 const tNode = processedNodes.find(n => n.id === e.target);
@@ -549,26 +726,43 @@ const OrgChartCanvasInner = ({
                 }
             });
 
-            // Gộp thêm: Tất cả Employee không có sếp cấp trên TRONG DANH SÁCH này
-            // NHƯNG bỏ qua external managers - họ là cấp cao hơn phòng ban, không thuộc Level L1
+            // Gộp thêm nhánh nhân viên không có incoming edges
             processedNodes.filter(n => n.type === 'employeeNode').forEach(n => {
                 const hasIncoming = processedEdges.some(e => e.target === n.id);
                 if (!hasIncoming && !n.data?.isExternalManager) rootEmpIds.add(n.id);
             });
 
+            // Assign default levels to root nodes
+            // If a root has an API-supplied customLevel (e.g. "L3"), use it; otherwise fall back to L1
             let queue = Array.from(rootEmpIds);
-            // Gán những người này là L1 (Chóp dưới chân Phòng/Khối. Nếu có TP trên đỉnh, lẽ ra họ là L2, nhưng gộp thẻ TP rồi nên họ sẽ đại diện cho L1 của màn hình)
-            queue.forEach(id => empLevelMap.set(id, 1));
+            queue.forEach(id => {
+                if (!empLevelMap.has(id)) {
+                    const node = processedNodes.find(n => n.id === id);
+                    const apiLevel = (node?.data as any)?.customLevel;
+                    if (apiLevel && typeof apiLevel === 'string' && apiLevel.startsWith('L')) {
+                        const parsed = parseInt(apiLevel.slice(1), 10);
+                        if (!isNaN(parsed) && parsed >= 1 && parsed <= 10) {
+                            empLevelMap.set(id, parsed);
+                            return;
+                        }
+                    }
+                    // Default: only assign L1 if this node truly has no parent among employees
+                    empLevelMap.set(id, 1);
+                }
+            });
 
+            // Fallback: Nếu không parse được title, cộng 1 cấp từ cấp cha (BFS)
             while (queue.length > 0) {
                 const curr = queue.shift()!;
                 const currLevel = empLevelMap.get(curr) || 1;
                 const children = processedEdges.filter(e => e.source === curr).map(e => e.target);
                 children.forEach(childId => {
                     const childNode = processedNodes.find(n => n.id === childId);
-                    if (childNode?.type === 'employeeNode' && !empLevelMap.has(childId)) {
-                        const nextLevel = Math.min(currLevel + 1, 7); // Max Level 7
-                        empLevelMap.set(childId, nextLevel);
+                    if (childNode?.type === 'employeeNode') {
+                        if (!empLevelMap.has(childId)) {
+                            const nextLevel = Math.min(currLevel + 1, 10);
+                            empLevelMap.set(childId, nextLevel);
+                        }
                         queue.push(childId);
                     }
                 });
@@ -579,9 +773,11 @@ const OrgChartCanvasInner = ({
                 .filter(n => !hiddenIds.has(n.id))
                 .map(n => {
                     const isEmployee = n.type === 'employeeNode';
-                    const typeKey = isEmployee ? 'EMPLOYEE' : (n.data?.type?.toUpperCase() || 'DEPARTMENT');
-                    const typeDims = nodeDims[typeKey] || { w: NODE_W, h: NODE_H };
-                    const typeColor = nodeColors[typeKey];
+                    const empLevel = isEmployee ? (empLevelMap.get(n.id) || 1) : null;
+                    const computedLevelKey = nodeLevels[n.id] || n.data?.customLevel || (isEmployee ? `L${empLevel}` : null);
+                    const baseTypeKey = isEmployee ? 'EMPLOYEE' : (n.data?.type?.toUpperCase() || 'DEPARTMENT');
+                    const typeDims = (computedLevelKey && nodeDims[computedLevelKey]) ? nodeDims[computedLevelKey] : (nodeDims[baseTypeKey] || { w: NODE_W, h: NODE_H });
+                    const typeColor = (computedLevelKey && nodeColors[computedLevelKey]) ? nodeColors[computedLevelKey] : nodeColors[baseTypeKey];
                     return {
                         ...n,
                         data: {
@@ -593,9 +789,9 @@ const OrgChartCanvasInner = ({
                             customBg: typeColor?.bg,
                             customText: typeColor?.text,
                             customBorder: typeColor?.border,
-                customLevel: n.data.customLevel,
+                customLevel: nodeLevels[n.id] || n.data.customLevel,
                 name: n.data.name || n.data.fullName || n.data.label,
-                hasChildren: apiData.edges.some(e => e.source === n.id && !hiddenIds.has(e.target)),
+                hasChildren: apiData.edges.some(e => e.source === n.id),
                             isCollapsed: collapsedNodeIds.has(n.id),
                             onToggleCollapse: toggleCollapse,
                             onClick: () => onNodeClick?.(n.data),
@@ -604,6 +800,7 @@ const OrgChartCanvasInner = ({
                             isDesignMode,
                             isHidden: hiddenNodeIds.has(n.id),
                             onHide: () => onHideNode(n.id),
+                            onChangeLevel: handleLevelChange,
                         }
                     };
                 });
@@ -641,7 +838,7 @@ const OrgChartCanvasInner = ({
                     const componentsIds = [root.id, ...getDescendantIds(root.id, visibleEdges)].filter(id => allVisibleIds.has(id));
                     const componentEdges = visibleEdges.filter(e => componentsIds.includes(e.source) && componentsIds.includes(e.target));
 
-                    const positions = treeLayout(root.id, componentsIds, componentEdges, isHorizontal, { nodesep, ranksep }, nodeDimsMap);
+                    const positions = treeLayout(root.id, componentsIds, componentEdges, isHorizontal, { nodesep, ranksep }, nodeDimsMap, nodeLevels);
 
                     // Find bounds
                     let compMaxX = 0;
@@ -681,15 +878,13 @@ const OrgChartCanvasInner = ({
                 if (!isInitialized || layoutTrigger !== prevLayoutTrigger) {
                     setTimeout(() => {
                         window.requestAnimationFrame(() => {
-                            if (globalConfig?.zoom) {
-                                // First center it using fitView, then apply the saved zoom
-                                fitView({ duration: 0, padding: 0.15 }).then(() => {
+                            // Always center content first, then apply saved zoom
+                            fitView({ duration: 0, padding: 0.12, maxZoom: 0.9 }).then(() => {
+                                if (globalConfig?.zoom) {
                                     const rect = getViewport();
                                     setViewport({ x: rect.x, y: rect.y, zoom: globalConfig.zoom }, { duration: 700 });
-                                });
-                            } else {
-                                fitView({ duration: 800, padding: 0.1 });
-                            }
+                                }
+                            });
                         });
                     }, 100);
                     if (!isInitialized) setIsInitialized(true);
@@ -724,14 +919,12 @@ const OrgChartCanvasInner = ({
         if (nodeCount === 0 || isInitialized) return;
         const rafId = window.requestAnimationFrame(() => {
             setTimeout(() => {
-                if (globalConfig?.zoom) {
-                    fitView({ duration: 0, padding: 0.15 }).then(() => {
+                fitView({ duration: 0, padding: 0.12, maxZoom: 0.9 }).then(() => {
+                    if (globalConfig?.zoom) {
                         const rect = getViewport();
                         setViewport({ x: rect.x, y: rect.y, zoom: globalConfig.zoom }, { duration: 500 });
-                    });
-                } else {
-                    fitView({ duration: 800, padding: 0.1 });
-                }
+                    }
+                });
                 setIsInitialized(true);
             }, 150);
         });
@@ -750,6 +943,7 @@ const OrgChartCanvasInner = ({
                 nodeTypes={nodeTypes}
                 nodesDraggable={!isLocked || isDesignMode}
                 nodesConnectable={isDesignMode}
+                edgesReconnectable={isDesignMode}
                 elementsSelectable={true}
                 onlyRenderVisibleElements={true}
                 connectionLineType={ConnectionLineType.SmoothStep}
@@ -760,6 +954,7 @@ const OrgChartCanvasInner = ({
                 onNodeClick={(_, node) => onNodeClick && onNodeClick(node.data)}
                 onNodeDoubleClick={(_, node) => onNodeDoubleClick && onNodeDoubleClick(node)}
                 onNodeDragStop={onNodeDragStop}
+                onReconnect={onReconnect}
                 onEdgeClick={onEdgeClick}
             >
                 {/* Light dot grid */}
@@ -828,23 +1023,7 @@ const OrgChartCanvasInner = ({
                                     </AlertDialogHeader>
                                     
                                     <div className="flex flex-col gap-3 my-2">
-                                         <button 
-                                            className="group relative w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-400 dark:hover:border-blue-500 shadow-sm hover:shadow-md transition-all duration-300"
-                                            onClick={() => confirmMatrixConnection('HR_CORE')}
-                                         >
-                                             <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent dark:from-blue-900/10 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-300" />
-                                             <div className="relative z-10">
-                                                <div className="flex items-center gap-3 mb-1.5">
-                                                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300">
-                                                        <Briefcase className="w-4 h-4"/>
-                                                    </div>
-                                                    <span className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">1. Chuyển quản lý HR Core</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed block pl-9">
-                                                    Cập nhật Data Nhân sự lõi. Lương, duyệt phép sẽ được chuyển sang quản lý mới. Dành cho điều chuyển chính thức.
-                                                </span>
-                                             </div>
-                                         </button>
+                                         
     
                                          <button 
                                             className="group relative w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-400 dark:hover:border-emerald-500 shadow-sm hover:shadow-md transition-all duration-300"
@@ -912,12 +1091,7 @@ const OrgChartCanvasInner = ({
                                     </div>
                                     <div className="flex gap-3 justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
                                          <AlertDialogCancel onClick={() => setGatekeeperConn(null)} className="rounded-full px-6 font-semibold">Hủy bỏ</AlertDialogCancel>
-                                         <Button 
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full px-6 shadow-sm shadow-indigo-200 dark:shadow-none" 
-                                            onClick={() => confirmMatrixConnection('HR_CORE')}
-                                         >
-                                            Chấp nhận Điều chuyển
-                                         </Button>
+                                         
                                     </div>
                                 </>
                             )}
@@ -954,83 +1128,7 @@ const OrgChartCanvasInner = ({
                     </Panel>
                 )}
 
-                {/* Design Mode Toolbar restored */}
-                {!isLocked && (
-                    <Panel position="bottom-center" className="mb-4 flex gap-2 !cursor-default" onClick={e => e.stopPropagation()}>
-                        <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl flex items-center gap-4 border border-indigo-100">
-                            
-                            {/* Căn chỉnh khoảng cách */}
-                            <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
-                                <Ruler className="w-4 h-4 text-indigo-500" />
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase w-10">Ngang</span>
-                                        <input type="range" min="20" max="200" value={nodesep} onChange={e => setNodesep(Number(e.target.value))} className="w-20" />
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase w-10">Dọc</span>
-                                        <input type="range" min="40" max="300" value={ranksep} onChange={e => setRanksep(Number(e.target.value))} className="w-20" />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            {/* Kích thước thẻ */}
-                            <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
-                                <LayoutList className="w-4 h-4 text-emerald-500" />
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-2">
-                                        <select 
-                                            value={editingDimType} 
-                                            onChange={e => setEditingDimType(e.target.value)}
-                                            className="text-[10px] bg-slate-100 border-none rounded px-1 py-0.5 outline-none font-bold text-slate-700"
-                                        >
-                                            {Object.keys(defaultNodeDims).map(k => <option key={k} value={k}>{k}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input type="number" value={nodeDims[editingDimType]?.w || 200} onChange={e => setNodeDims(p => ({...p, [editingDimType]: {...p[editingDimType], w: Number(e.target.value)}}))} className="w-12 text-[10px] font-bold px-1 py-0.5 rounded border border-slate-200" title="Chiều rộng" />
-                                        <input type="number" value={nodeDims[editingDimType]?.h || 100} onChange={e => setNodeDims(p => ({...p, [editingDimType]: {...p[editingDimType], h: Number(e.target.value)}}))} className="w-12 text-[10px] font-bold px-1 py-0.5 rounded border border-slate-200" title="Chiều cao" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Màu thẻ & Level Palette */}
-                            <div className="flex items-center gap-2 pr-4 border-r border-slate-200">
-                                <Edit3 className="w-4 h-4 text-amber-500" />
-                                <div className="flex flex-col gap-1">
-                                    <select 
-                                        value={editingColorType} 
-                                        onChange={e => setEditingColorType(e.target.value)}
-                                        className="text-[10px] bg-slate-100 border-none rounded px-1 py-0.5 outline-none font-bold text-slate-700"
-                                    >
-                                        <optgroup label="Cấp độ">
-                                            {Array.from({length: 10}).map((_, i) => <option key={`L${i+1}`} value={`L${i+1}`}>Cấp L{i+1}</option>)}
-                                        </optgroup>
-                                        <optgroup label="Loại chức vụ (Dự phòng)">
-                                            {Object.keys(defaultColors).filter(k => !k.startsWith('L')).map(k => <option key={k} value={k}>{k}</option>)}
-                                        </optgroup>
-                                    </select>
-                                    <div className="flex gap-1">
-                                        {gradientPresets.slice(0, 6).map((preset, idx) => (
-                                            <button 
-                                                key={idx} 
-                                                className="w-4 h-4 rounded-full border border-white shadow-sm hover:scale-125 transition-transform"
-                                                style={{ background: preset.bg }}
-                                                title={preset.label}
-                                                onClick={() => setNodeColors(p => ({...p, [editingColorType]: preset}))}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button onClick={saveDesignConfig} className="flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 p-2 rounded-xl border border-blue-200 transition-colors group">
-                                <Save className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
-                                <span className="text-[9px] font-bold text-blue-700 mt-1 uppercase">Lưu Giao Diện</span>
-                            </button>
-                        </div>
-                    </Panel>
-                )}
+                {/* Bottom Toolbar has been unified into the right panel */}
 
 
                 {/* Zoom indicator */}
@@ -1079,12 +1177,17 @@ const OrgChartCanvasInner = ({
                                             value={editingDimType}
                                             onChange={e => setEditingDimType(e.target.value)}
                                         >
-                                            <option value="COMPANY">Công ty</option>
-                                            <option value="FACTORY">Nhà máy</option>
-                                            <option value="DIVISION">Khối</option>
-                                            <option value="DEPARTMENT">Phòng ban</option>
-                                            <option value="SECTION">Tổ / Bộ phận</option>
-                                            <option value="EMPLOYEE">Thẻ Nhân sự</option>
+                                            <optgroup label="Đơn vị Tổ chức">
+                                                <option value="COMPANY">Công ty</option>
+                                                <option value="FACTORY">Nhà máy</option>
+                                                <option value="DIVISION">Khối</option>
+                                                <option value="DEPARTMENT">Phòng ban</option>
+                                                <option value="SECTION">Tổ / Bộ phận</option>
+                                                <option value="EMPLOYEE">Thẻ Nhân sự</option>
+                                            </optgroup>
+                                            <optgroup label="Theo Cấp độ (Layer)">
+                                                {Array.from({length: 10}).map((_, i) => <option key={`L${i+1}`} value={`L${i+1}`}>Cấp L{i+1}</option>)}
+                                            </optgroup>
                                         </select>
 
                                         <div className="flex flex-col gap-1 mt-1">
@@ -1184,7 +1287,13 @@ const OrgChartCanvasInner = ({
                                             <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide">Màu thẻ</span>
                                             <button
                                                 className="text-[9px] text-slate-400 hover:text-slate-600 underline"
-                                                onClick={() => setNodeColors(prev => ({ ...prev, [editingColorType]: defaultColors[editingColorType] || defaultColors.DIVISION }))}
+                                                onClick={() => {
+                                                  if (!defaultColors[editingColorType]) {
+                                                      setNodeColors(prev => { const next = {...prev}; delete next[editingColorType]; return next; });
+                                                  } else {
+                                                      setNodeColors(prev => ({ ...prev, [editingColorType]: defaultColors[editingColorType] }));
+                                                  }
+                                              }}
                                             >↺ Đặt lại</button>
                                         </div>
                                         <select
@@ -1192,12 +1301,17 @@ const OrgChartCanvasInner = ({
                                             value={editingColorType}
                                             onChange={e => setEditingColorType(e.target.value)}
                                         >
-                                            <option value="COMPANY">Công ty</option>
-                                            <option value="FACTORY">Nhà máy</option>
-                                            <option value="DIVISION">Khối</option>
-                                            <option value="DEPARTMENT">Phòng ban</option>
-                                            <option value="SECTION">Tổ / Bộ phận</option>
-                                            <option value="EMPLOYEE">Thẻ Nhân sự</option>
+                                            <optgroup label="Đơn vị Tổ chức">
+                                                <option value="COMPANY">Công ty</option>
+                                                <option value="FACTORY">Nhà máy</option>
+                                                <option value="DIVISION">Khối</option>
+                                                <option value="DEPARTMENT">Phòng ban</option>
+                                                <option value="SECTION">Tổ / Bộ phận</option>
+                                                <option value="EMPLOYEE">Thẻ Nhân sự</option>
+                                            </optgroup>
+                                            <optgroup label="Theo Cấp độ (Layer)">
+                                                {Array.from({length: 10}).map((_, i) => <option key={`L${i+1}`} value={`L${i+1}`}>Cấp L{i+1}</option>)}
+                                            </optgroup>
                                         </select>
 
                                         {/* Gradient Palette Grid */}
@@ -1248,7 +1362,7 @@ const OrgChartCanvasInner = ({
                                         onClick={async () => {
                                             const chartKey = apiData?.departmentInfo ? `DEPT-${apiData.departmentInfo.id}` : 'global-config';
                                             try {
-                                                await apiClient.post(`/employee/org-chart/config/${chartKey}`, {
+                                                await apiClient.post(`/employees/org-chart/config/${chartKey}`, {
                                                     nodesep, ranksep, nodeDims, nodeColors
                                                 });
                                                 toast.success('Đã lưu cấu hình hiển thị');
@@ -1279,3 +1393,12 @@ const OrgChartCanvas = forwardRef((props: OrgChartCanvasProps, ref) => (
 ));
 OrgChartCanvas.displayName = 'OrgChartCanvas';
 export default OrgChartCanvas;
+
+
+
+
+
+
+
+
+

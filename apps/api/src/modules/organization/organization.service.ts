@@ -565,12 +565,20 @@ export class OrganizationService {
       throw new BadRequestException('Không thể liên kết nhân viên với chính họ');
     }
 
-    // Upsert equivalent behavior for MOVE_NODE or HIDE_NODE (only 1 per action/employee usually)
-    // To keep it simple, if MOVE_NODE we delete previous MOVE_NODEs for this employee
+    // Duplicate prevention for ALL action types
     if (data.action === 'MOVE_NODE' || data.action === 'HIDE_NODE') {
       await this.prisma.orgChartOverride.deleteMany({
         where: { employeeId: data.employeeId, action: data.action }
       });
+    } else if (data.action === 'ADD_DOTTED_LINE') {
+      // Prevent duplicate dotted lines between same pair
+      const existing = await this.prisma.orgChartOverride.findFirst({
+        where: { employeeId: data.employeeId, action: 'ADD_DOTTED_LINE', targetManagerId: data.targetManagerId }
+      });
+      if (existing) {
+        // Already exists — return the existing one instead of creating a duplicate
+        return existing;
+      }
     }
 
     const override = await this.prisma.orgChartOverride.create({
@@ -583,12 +591,19 @@ export class OrganizationService {
       }
     });
 
-    // Clear caches
+    // Clear caches for BOTH departments (employee + target manager)
     await this.cacheManager.del('org_chart_hierarchy:all:global-config');
-    const emp = await this.prisma.employee.findUnique({ where: { id: data.employeeId } });
-    if (emp && emp.departmentId) {
-       await this.cacheManager.del(`org_chart_hierarchy:${emp.departmentId}:global-config`);
-       await this.cacheManager.del(`org-chart:dept:${emp.departmentId}:DEPT-${emp.departmentId}`);
+    await this.cacheManager.del('org_chart_structure');
+    const [emp, mgr] = await Promise.all([
+      this.prisma.employee.findUnique({ where: { id: data.employeeId }, select: { departmentId: true } }),
+      this.prisma.employee.findUnique({ where: { id: data.targetManagerId }, select: { departmentId: true } }),
+    ]);
+    const deptIds = new Set<string>();
+    if (emp?.departmentId) deptIds.add(emp.departmentId);
+    if (mgr?.departmentId) deptIds.add(mgr.departmentId);
+    for (const deptId of deptIds) {
+      await this.cacheManager.del(`org_chart_hierarchy:${deptId}:global-config`);
+      await this.cacheManager.del(`org-chart:dept:${deptId}:DEPT-${deptId}`);
     }
 
     return override;
@@ -608,4 +623,5 @@ export class OrganizationService {
     return override;
   }
 }
+
 

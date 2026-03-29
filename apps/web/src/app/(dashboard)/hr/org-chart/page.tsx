@@ -494,7 +494,7 @@ export default function OrgChartPage() {
             
             await Promise.all([
                 positions.length > 0 ? apiPost('/organization/positions/bulk', { chartKey, positions }) : Promise.resolve(),
-                configPayload ? apiPatch('/organization/config/global', configPayload) : Promise.resolve()
+                canvasRef.current?.saveConfig ? canvasRef.current.saveConfig() : (configPayload ? apiPatch('/organization/config/global', configPayload) : Promise.resolve())
             ]);
             
             toast.success('Bố cục đã được lưu thành công!', { id: toastId });

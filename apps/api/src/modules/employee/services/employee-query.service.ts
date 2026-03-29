@@ -830,6 +830,13 @@ export class EmployeeQueryService {
         }
     });
 
+    // Also fetch External Managers added via Matrix overrides
+    matrixOverrides.forEach(ov => {
+        if (ov.targetManagerId && !employeeIds.has(ov.targetManagerId) && employeeIds.has(ov.employeeId)) {
+            missingManagerIds.add(ov.targetManagerId);
+        }
+    });
+
     if (missingManagerIds.size > 0) {
         const extManagers = await this.prisma.employee.findMany({
             where: { id: { in: Array.from(missingManagerIds) }, deletedAt: null },
@@ -1190,3 +1197,5 @@ export class EmployeeQueryService {
     };
   }
 }
+
+
